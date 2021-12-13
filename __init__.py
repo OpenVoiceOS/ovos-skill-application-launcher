@@ -1,11 +1,10 @@
-from os import listdir
 import os
+from os import listdir
 from os.path import expanduser, isdir, join
-from ovos_utils.parse import match_one
-from mycroft.skills import MycroftSkill, intent_handler
-from tempfile import gettempdir
 
 from adapt.intent import IntentBuilder
+from mycroft.skills import MycroftSkill, intent_handler
+from mycroft.util.parse import match_one
 
 
 class ApplicationLauncherSkill(MycroftSkill):
