@@ -8,13 +8,18 @@ from mycroft.util.parse import match_one
 
 
 class ApplicationLauncherSkill(MycroftSkill):
+    # some applications can't be easily triggered by voice
+    # this is a mapping of alternative names that should be accounted for
+    # PRs welcome!
+    aliases = {
+        "kcalc": "calculator"
+    }
 
     def initialize(self):
         for app in self.get_app_aliases().keys():
             self.register_vocabulary(app.lower(), "Application")
 
-    @staticmethod
-    def get_app_aliases():
+    def get_app_aliases(self):
         apps = {}
         norm = lambda k: k.replace(".desktop", "").replace("-", " ").replace("_", " ").split(".")[-1].title()
         for p in ["/usr/share/applications/",
@@ -51,12 +56,24 @@ class ApplicationLauncherSkill(MycroftSkill):
                     for name in names:
                         if 3 <= len(name) <= 20:
                             apps[name] = cmd
+                        if name in self.aliases:
+                            alias = self.aliases[name]
+                            if alias not in apps: # different "real" app might exist
+                                apps[alias] = cmd
+                        # KDE likes to replace every C with a K
+                        if name.startswith("K"):
+                            alias = "C" + name[1:]
+                            if alias not in apps:
+                                apps[alias] = cmd
         return apps
 
     @intent_handler(IntentBuilder("LaunchApplication").
                     require("Launch").require("Application"))
     def handle_open_application(self, message):
         app = message.data["Application"]
+        self.launch(app)
+
+    def launch(self, app):
         applist = self.get_app_aliases()
         cmd, _ = match_one(app.title(), applist)
         os.system(cmd)
