@@ -8,8 +8,6 @@ from padacioso import IntentContainer
 
 class ApplicationLauncherSkill(FallbackSkill):
     def initialize(self):
-        for app in self.get_app_aliases().keys():
-            self.register_vocabulary(app.lower(), "Application")
         # some applications can't be easily triggered by voice
         # this is a mapping of alternative names that should be accounted for
         if "aliases" not in self.settings:
