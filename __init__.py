@@ -17,6 +17,11 @@ class ApplicationLauncherSkill(FallbackSkill):
                 # "name from .desktop file": ["speech", "friendly", "names"]
                 "kcalc": ["calculator"]
             }
+        # these are user defined commands mapped to voice
+        if "user_commands" not in self.settings:
+            # "application name": "bash command"
+            self.settings["user_commands"] = {}
+
         # this is a regex based intent parser
         # we handle this in fallback stage to
         # allow more control over matching application names
@@ -32,7 +37,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             self.container.add_intent('launch', f.read().split("\n"))
 
     def get_app_aliases(self):
-        apps = {}
+        apps = self.settings.get("user_commands") or {}
         norm = lambda k: k.replace(".desktop", "").replace("-", " ").replace("_", " ").split(".")[-1].title()
         for p in ["/usr/share/applications/",
                   "/usr/local/share/applications/",
