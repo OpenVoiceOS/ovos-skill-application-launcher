@@ -9,7 +9,7 @@ PLUGIN_ENTRY_POINT = 'mycroft-desktop-launcher.mycroftai=skill_application_launc
 
 setup(
     name='skill-application-launcher',
-    version='0.0.1',
+    version='0.0.2',
     description='OVOS application launcher skill plugin',
     url='https://github.com/JarbasSkills/skill-application-launcher',
     author='JarbasAi',
@@ -19,7 +19,7 @@ setup(
     package_data={'skill_application_launcher': ["locale/*"]},
     packages=['skill_application_launcher'],
     include_package_data=True,
-    install_requires=["ovos-plugin-manager>=0.0.2"],
+    install_requires=["padacioso~=0.1.1"],
     keywords='ovos skill plugin',
     entry_points={'ovos.plugin.skill': PLUGIN_ENTRY_POINT}
 )

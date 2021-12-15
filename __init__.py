@@ -1,23 +1,35 @@
-import os
 from os import listdir
 from os.path import expanduser, isdir, join
-
-from adapt.intent import IntentBuilder
-from mycroft.skills import MycroftSkill, intent_handler
+import os
+from mycroft.skills import FallbackSkill
 from mycroft.util.parse import match_one
+from padacioso import IntentContainer
 
 
-class ApplicationLauncherSkill(MycroftSkill):
-    # some applications can't be easily triggered by voice
-    # this is a mapping of alternative names that should be accounted for
-    # PRs welcome!
-    aliases = {
-        "kcalc": "calculator"
-    }
-
+class ApplicationLauncherSkill(FallbackSkill):
     def initialize(self):
         for app in self.get_app_aliases().keys():
             self.register_vocabulary(app.lower(), "Application")
+        # some applications can't be easily triggered by voice
+        # this is a mapping of alternative names that should be accounted for
+        if "aliases" not in self.settings:
+            self.settings["aliases"] = {
+                # "name from .desktop file": ["speech", "friendly", "names"]
+                "kcalc": "calculator"
+            }
+        # this is a regex based intent parser
+        # we handle this in fallback stage to
+        # allow more control over matching application names
+        self.container = IntentContainer()
+        self.register_fallback_intents()
+        # before common_query, otherwise we get info about the app instead
+        self.register_fallback(self.handle_fallback, 4)
+
+    def register_fallback_intents(self):
+        # TODO close application intent
+        launch = join(self.root_dir, "locale", self.lang, "launch.intent")
+        with open(launch) as f:
+            self.container.add_intent('launch', f.read().split("\n"))
 
     def get_app_aliases(self):
         apps = {}
@@ -56,9 +68,9 @@ class ApplicationLauncherSkill(MycroftSkill):
                     for name in names:
                         if 3 <= len(name) <= 20:
                             apps[name] = cmd
-                        if name in self.aliases:
-                            alias = self.aliases[name]
-                            if alias not in apps: # different "real" app might exist
+                        # speech friendly aliases
+                        if name in self.settings.get("aliases", {}):
+                            for alias in self.settings["aliases"][name]:
                                 apps[alias] = cmd
                         # KDE likes to replace every C with a K
                         if name.startswith("K"):
@@ -67,16 +79,17 @@ class ApplicationLauncherSkill(MycroftSkill):
                                 apps[alias] = cmd
         return apps
 
-    @intent_handler(IntentBuilder("LaunchApplication").
-                    require("Launch").require("Application"))
-    def handle_open_application(self, message):
-        app = message.data["Application"]
-        self.launch(app)
-
-    def launch(self, app):
-        applist = self.get_app_aliases()
-        cmd, _ = match_one(app.title(), applist)
-        os.system(cmd)
+    def handle_fallback(self, message):
+        utterance = message.data.get("utterance", "")
+        res = self.container.calc_intent(utterance)
+        app = res.get('entities', {}).get("application")
+        if app:
+            applist = self.get_app_aliases()
+            cmd, score = match_one(app.title(), applist)
+            if score >= self.settings.get("thresh", 0.85):
+                self.log.info(f"Executing command: {cmd}")
+                os.system(cmd)
+                return True
 
 
 def create_skill():
