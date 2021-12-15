@@ -15,7 +15,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         if "aliases" not in self.settings:
             self.settings["aliases"] = {
                 # "name from .desktop file": ["speech", "friendly", "names"]
-                "kcalc": "calculator"
+                "kcalc": ["calculator"]
             }
         # this is a regex based intent parser
         # we handle this in fallback stage to
