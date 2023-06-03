@@ -1,8 +1,8 @@
 from os import listdir
 from os.path import expanduser, isdir, join
 import os
-from mycroft.skills import FallbackSkill
-from mycroft.util.parse import match_one
+from ovos_workshop.skills.fallback import FallbackSkill
+from ovos_utils.parse import match_one
 from padacioso import IntentContainer
 
 
@@ -94,6 +94,3 @@ class ApplicationLauncherSkill(FallbackSkill):
                 os.system(cmd)
                 return True
 
-
-def create_skill():
-    return ApplicationLauncherSkill()
