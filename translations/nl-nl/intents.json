@@ -1,0 +1,7 @@
+{
+    "launch.intent": [
+        "start {application}",
+        "open {application}",
+        "draai {application}"
+    ]
+}

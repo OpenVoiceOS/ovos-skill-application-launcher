@@ -1,0 +1,7 @@
+{
+    "launch.intent": [
+        "lancia {application}",
+        "apri {application}",
+        "avvia {application}"
+    ]
+}
