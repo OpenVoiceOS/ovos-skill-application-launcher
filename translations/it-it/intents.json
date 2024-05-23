@@ -1,7 +1,7 @@
 {
-    "launch.intent": [
-        "lancia {application}",
-        "apri {application}",
-        "avvia {application}"
-    ]
+  "launch.intent": [
+    "usa {application}",
+    "apri {application}",
+    "avvia {application}"
+  ]
 }
