@@ -5,12 +5,12 @@ from os import walk
 
 # Define package information
 SKILL_CLAZZ = "ApplicationLauncherSkill"  # Make sure it matches __init__.py class name
-VERSION = "0.0.2"
+VERSION = "0.1.0a1"
 URL = "https://github.com/OVOSHatchery/ovos-skill-application-launcher"
 AUTHOR = "OpenVoiceOS"
 EMAIL = "jarbasai@mailfence.com"
 LICENSE = "Apache2.0"
-DESCRIPTION = SKILL_CLAZZ # TODO
+DESCRIPTION = "launch desktop applications by voice"
 
 PYPI_NAME = URL.split("/")[-1]  # pip install PYPI_NAME
 

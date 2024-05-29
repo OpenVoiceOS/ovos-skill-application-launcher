@@ -1,8 +1,10 @@
+import os
 from os import listdir
 from os.path import expanduser, isdir, join
-import os
-from ovos_workshop.skills.fallback import FallbackSkill
+
+from ovos_utils.log import LOG
 from ovos_utils.parse import match_one
+from ovos_workshop.skills.fallback import FallbackSkill
 from padacioso import IntentContainer
 
 
@@ -23,16 +25,20 @@ class ApplicationLauncherSkill(FallbackSkill):
         # this is a regex based intent parser
         # we handle this in fallback stage to
         # allow more control over matching application names
-        self.container = IntentContainer()
+        self.intent_matchers = {}
         self.register_fallback_intents()
         # before common_query, otherwise we get info about the app instead
         self.register_fallback(self.handle_fallback, 4)
 
     def register_fallback_intents(self):
         # TODO close application intent
-        launch = join(self.root_dir, "locale", self.lang, "launch.intent")
-        with open(launch) as f:
-            self.container.add_intent('launch', f.read().split("\n"))
+        for lang in os.listdir(f"{self.root_dir}/locale"):
+            self.intent_matchers[lang] = IntentContainer()
+            launch = join(self.root_dir, "locale", self.lang, "launch.intent")
+            with open(launch) as f:
+                samples = [l for l in f.read().split("\n")
+                           if not l.startswith("#") and l.strip()]
+                self.intent_matchers[lang].add_intent('launch', samples)
 
     def get_app_aliases(self):
         apps = self.settings.get("user_commands") or {}
@@ -47,6 +53,8 @@ class ApplicationLauncherSkill(FallbackSkill):
                 names = [norm(f)]
                 cmd = ""
                 is_app = True
+                if os.path.isdir(path):
+                    continue
                 with open(path) as f:
                     for l in f.read().split("\n"):
                         if "Name=" in l:
@@ -80,17 +88,29 @@ class ApplicationLauncherSkill(FallbackSkill):
                             alias = "C" + name[1:]
                             if alias not in apps:
                                 apps[alias] = cmd
+                    LOG.debug(f"found app {f} with aliases: {names}")
         return apps
 
     def handle_fallback(self, message):
+
         utterance = message.data.get("utterance", "")
-        res = self.container.calc_intent(utterance)
+        if self.lang not in self.intent_matchers:
+            return False
+
+        res = self.intent_matchers[self.lang].calc_intent(utterance)
         app = res.get('entities', {}).get("application")
         if app:
             applist = self.get_app_aliases()
             cmd, score = match_one(app.title(), applist)
             if score >= self.settings.get("thresh", 0.85):
-                self.log.info(f"Executing command: {cmd}")
+                LOG.info(f"Executing command: {cmd}")
                 os.system(cmd)
                 return True
 
+
+if __name__ == "__main__":
+    from ovos_utils.fakebus import FakeBus
+    from ovos_bus_client.message import Message
+
+    s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
+    s.handle_fallback(Message("", {"utterance": "launch firefox"}))
