@@ -2,6 +2,7 @@
 from setuptools import setup
 from os.path import abspath, dirname, join, isfile, isdir
 from os import walk
+import os
 
 # Define package information
 SKILL_CLAZZ = "ApplicationLauncherSkill"  # Make sure it matches __init__.py class name
