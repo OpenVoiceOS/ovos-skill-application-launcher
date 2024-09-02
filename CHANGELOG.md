@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/HEAD)
+## [V0.1.0a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.1.0a2) (2024-09-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/84617eece9553028a040ee4d73c243e89d111eb1...HEAD)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/84617eece9553028a040ee4d73c243e89d111eb1...V0.1.0a2)
 
 **Implemented enhancements:**
 
