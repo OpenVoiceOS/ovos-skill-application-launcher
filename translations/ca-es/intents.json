@@ -1,0 +1,7 @@
+{
+  "launch.intent": [
+    "inicia (el |la |l'|sa|s'|){application}",
+    "obre (el |la |l'|sa|s'|){application}",
+    "executa (el |la |l'|sa|s'|){application}"
+  ]
+}
