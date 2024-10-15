@@ -1,22 +1,13 @@
 # Changelog
 
-## [V0.1.0a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.1.0a2) (2024-09-02)
+## [0.2.1a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.2.1a1) (2024-10-15)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/84617eece9553028a040ee4d73c243e89d111eb1...V0.1.0a2)
-
-**Implemented enhancements:**
-
-- Added Dutch translation [\#1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/1) ([Vistaus](https://github.com/Vistaus))
-
-**Closed issues:**
-
-- Not on PyPi [\#4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/issues/4)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.1.0...0.2.1a1)
 
 **Merged pull requests:**
 
-- usa is better than lancia [\#6](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/6) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
-- pt-pt/translate-intents [\#5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/5) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
-- added it-it [\#2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/2) ([denics](https://github.com/denics))
+- fix:update\_requirements [\#9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/9) ([JarbasAl](https://github.com/JarbasAl))
+- Add Catalan translation [\#8](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/8) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
 
 
