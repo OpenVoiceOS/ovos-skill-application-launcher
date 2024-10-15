@@ -1,3 +1,0 @@
-[ovos.plugin.skill]
-ovos-skill-application-launcher.openvoiceos=ovos_skill_application_launcher:ApplicationLauncherSkill
-
