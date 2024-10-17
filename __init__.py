@@ -47,8 +47,8 @@ class ApplicationLauncherSkill(FallbackSkill):
                     self.intent_matchers[lang] = IntentContainer()
                 with open(launch) as f:
                     # TODO - expand parentheses, do not require one per line
-                    samples = [l for l in f.read().split("\n")
-                               if not l.startswith("#") and l.strip()]
+                    samples = [line for line in f.read().split("\n")
+                               if not line.startswith("#") and line.strip()]
                     self.intent_matchers[lang].add_intent(intent_name, samples)
 
     def get_app_aliases(self):
