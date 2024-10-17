@@ -133,7 +133,8 @@ class ApplicationLauncherSkill(FallbackSkill):
         candidates = []
         best = 0
         for win in windows:
-            score = fuzzy_match(win[1].name(), app)
+            score = max(fuzzy_match(win[1].name(), app),
+                        fuzzy_match(win[-1], app))  # pick best match, process name or window name
             if score < self.settings.get("thresh", 0.85):
                 continue
             if score > best:
