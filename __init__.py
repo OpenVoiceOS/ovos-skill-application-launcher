@@ -65,7 +65,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
         for app in self.get_desktop_apps(
                 skip_categories=self.settings.get("skip_categories",
-                                                  ['System', 'Settings', 'ConsoleOnly', 'Utility', 'Building']),
+                                                  ['Settings', 'ConsoleOnly', 'Building']),
                 skip_keywords=self.settings.get("skip_keywords", []),
                 target_categories=self.settings.get("target_categories", []),
                 target_keywords=self.settings.get("target_keywords", []),
