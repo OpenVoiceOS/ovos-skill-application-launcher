@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import time
 from os import listdir
@@ -6,6 +7,7 @@ from os.path import expanduser, isdir, join
 
 import psutil
 from langcodes import closest_match
+from ovos_utils.bracket_expansion import expand_options
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
 from ovos_utils.parse import match_one, fuzzy_match
@@ -46,9 +48,9 @@ class ApplicationLauncherSkill(FallbackSkill):
                 if lang not in self.intent_matchers:
                     self.intent_matchers[lang] = IntentContainer()
                 with open(launch) as f:
-                    # TODO - expand parentheses, do not require one per line
-                    samples = [line for line in f.read().split("\n")
-                               if not line.startswith("#") and line.strip()]
+                    samples = [option for line in f.read().split("\n")
+                               if not line.startswith("#") and line.strip()
+                               for option in expand_options(line)]
                     self.intent_matchers[lang].add_intent(intent_name, samples)
 
     def get_app_aliases(self):
@@ -109,7 +111,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             LOG.info(f"Matched application: {app} (command: {cmd})")
             try:
                 # Launch the application in a new process without blocking
-                subprocess.Popen(cmd, shell=True)
+                subprocess.Popen(shlex.split(cmd))
                 return True
             except Exception as e:
                 LOG.error(f"Failed to launch {app}: {e}")
@@ -169,6 +171,6 @@ if __name__ == "__main__":
     s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
     s.handle_fallback(Message("", {"utterance": "abrir firefox", "lang": "pt-pt"}))
     time.sleep(2)
-    s.handle_fallback(Message("", {"utterance": "kill firefox"}))
+    # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     time.sleep(2)
     s.handle_fallback(Message("", {"utterance": "launch firefox", "lang": "en-UK"}))
