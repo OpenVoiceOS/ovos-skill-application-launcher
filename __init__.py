@@ -89,7 +89,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                     for alias in self.settings["aliases"][name]:
                         apps[alias] = cmd
                 # KDE likes to replace every C with a K
-                if name.startswith("K") and "KDE" in apps.get("Categories", []):
+                if name.startswith("K") and "KDE" in app.get("Categories", []):
                     alias = "C" + name[1:]
                     if alias not in apps:
                         apps[alias] = cmd
