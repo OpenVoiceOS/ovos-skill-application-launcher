@@ -1,0 +1,5 @@
+close {application}
+terminate {application}
+kill {application}
+exit {application}
+quit {application}

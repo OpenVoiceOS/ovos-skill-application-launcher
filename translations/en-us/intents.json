@@ -1,7 +1,14 @@
 {
-    "launch.intent": [
-        "launch {application}",
-        "open {application}",
-        "run {application}"
-    ]
+  "launch.intent": [
+    "launch {application}",
+    "open {application}",
+    "run {application}"
+  ],
+  "close.intent": [
+    "close {application}",
+    "terminate {application}",
+    "kill {application}",
+    "exit {application}",
+    "quit {application}"
+  ]
 }
