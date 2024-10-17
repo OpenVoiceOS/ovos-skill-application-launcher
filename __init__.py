@@ -1,7 +1,6 @@
 import os
 import shlex
 import subprocess
-import time
 from os import listdir
 from os.path import expanduser, isdir, join
 
@@ -29,6 +28,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             # "application name": "bash command"
             self.settings["user_commands"] = {}
 
+        self.applist = self.get_app_aliases()
         # this is a regex based intent parser
         # we handle this in fallback stage to
         # allow more control over matching application names
@@ -44,14 +44,15 @@ class ApplicationLauncherSkill(FallbackSkill):
                 launch = join(self.root_dir, "locale", lang, f"{intent_name}.intent")
                 if not os.path.isfile(launch):
                     continue
-                lang = standardize_lang_tag(lang)
-                if lang not in self.intent_matchers:
-                    self.intent_matchers[lang] = IntentContainer()
+                l2 = standardize_lang_tag(lang)
+                if l2 not in self.intent_matchers:
+                    self.intent_matchers[l2] = IntentContainer()
+                LOG.debug(f"'{self.skill_id}' - registering fallback '{l2}' intent: '{intent_name}'")
                 with open(launch) as f:
                     samples = [option for line in f.read().split("\n")
                                if not line.startswith("#") and line.strip()
                                for option in expand_options(line)]
-                    self.intent_matchers[lang].add_intent(intent_name, samples)
+                    self.intent_matchers[l2].add_intent(intent_name, samples)
 
     def get_app_aliases(self):
         apps = self.settings.get("user_commands") or {}
@@ -105,8 +106,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         return apps
 
     def launch_app(self, app: str) -> bool:
-        applist = self.get_app_aliases()
-        cmd, score = match_one(app.title(), applist)
+        cmd, score = match_one(app.title(), self.applist)
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
             try:
@@ -119,9 +119,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
     def close_app(self, app: str) -> bool:
         """Close the application with the given name."""
-        applist = self.get_app_aliases()
-
-        cmd, _ = match_one(app.title(), applist)
+        cmd, _ = match_one(app.title(), self.applist)
         cmd = cmd.split(" ")[0].split("/")[-1]
         terminated = []
 
@@ -157,6 +155,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
         app = res.get('entities', {}).get("application")
         if app:
+            LOG.debug(f"Application name match: {res}")
             if res["name"] == "launch":
                 return self.launch_app(app)
             elif res["name"] == "close":
@@ -169,8 +168,10 @@ if __name__ == "__main__":
     from ovos_bus_client.message import Message
 
     s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
-    s.handle_fallback(Message("", {"utterance": "abrir firefox", "lang": "pt-pt"}))
+    s.handle_fallback(Message("", {"utterance": "open firefox", "lang": "en-US"}))
+    exit()
     time.sleep(2)
     # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     time.sleep(2)
     s.handle_fallback(Message("", {"utterance": "launch firefox", "lang": "en-UK"}))
+    s.handle_fallback(Message("", {"utterance": "Abrir Firefox", "lang": "pt-pt"}))
