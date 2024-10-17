@@ -5,8 +5,7 @@ import subprocess
 from os import listdir
 from os.path import expanduser, isdir, join
 from typing import Dict, List, Union, Generator, Optional, Iterable
-from distutils.spawn import find_executable
-
+from shutil import which
 
 import psutil
 from langcodes import closest_match
@@ -33,7 +32,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             # "application name": "bash command"
             self.settings["user_commands"] = {}
 
-        self.wmctrl = find_executable("wmctrl")
+        self.wmctrl = which("wmctrl")
         if not self.wmctrl:
             LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
         else:
@@ -127,7 +126,7 @@ class ApplicationLauncherSkill(FallbackSkill):
     def close_app(self, app: str):
         if self.wmctrl:
             return self.close_by_window(app) or self.close_by_process(app)
-        self.close_by_process(app)
+        return self.close_by_process(app)
 
     def close_by_window(self, app: str) -> bool:
         windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
@@ -142,6 +141,9 @@ class ApplicationLauncherSkill(FallbackSkill):
             if score >= best:
                 candidates.append(win)
                 best = score
+
+        if not candidates:
+            return False
 
         for win in candidates:
             LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
@@ -331,11 +333,13 @@ class ApplicationLauncherSkill(FallbackSkill):
             result = subprocess.run([wmctrl, '-ic', window_id])
             # windows are returned sorted by order of creation, but we dont have that timestamp
             # TODO - is this true or just coincidence in my tests? i don't think it is ensured
-            if result.returncode != 0:
-                LOG.error("'wmctrl' command failed.")
-            return True
-        except:
-            return False
+            if result.returncode == 0:
+                return True
+        except Exception as e:
+            pass
+
+        LOG.error("'wmctrl' command failed.")
+        return False
 
     @staticmethod
     def get_window_process_mapping(wmctrl="wmctrl"):
