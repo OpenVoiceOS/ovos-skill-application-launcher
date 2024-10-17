@@ -1,16 +1,16 @@
 # Changelog
 
-## [0.3.2a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.3.2a1) (2024-10-17)
+## [0.3.3a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.3.3a1) (2024-10-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.3.1...0.3.2a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.3.2...0.3.3a1)
 
 **Merged pull requests:**
 
-- fix:improve desktop file parser [\#15](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/15) ([JarbasAl](https://github.com/JarbasAl))
+- fix:close\_by\_window [\#18](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/18) ([JarbasAl](https://github.com/JarbasAl))
 
-## [V0.3.1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.3.1) (2024-10-17)
+## [V0.3.2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.3.2) (2024-10-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.3.1...V0.3.1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.3.2...V0.3.2)
 
 
 
