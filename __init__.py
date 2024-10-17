@@ -4,7 +4,8 @@ import shlex
 import subprocess
 from os import listdir
 from os.path import expanduser, isdir, join
-from typing import Dict, List, Union, Generator, Optional, Set, Tuple
+from typing import Dict, List, Union, Generator, Optional, Iterable
+from shutil import which
 
 import psutil
 from langcodes import closest_match
@@ -31,6 +32,11 @@ class ApplicationLauncherSkill(FallbackSkill):
             # "application name": "bash command"
             self.settings["user_commands"] = {}
 
+        self.wmctrl = which("wmctrl")
+        if not self.wmctrl:
+            LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
+        else:
+            LOG.debug(f"'wmctrl' found: {self.wmctrl}")
         self.applist = self.get_app_aliases()
         # this is a regex based intent parser
         # we handle this in fallback stage to
@@ -117,7 +123,52 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.error(f"Failed to launch {app}: {e}")
         return False
 
-    def close_app(self, app: str) -> bool:
+    def close_app(self, app: str):
+        if self.wmctrl:
+            return self.close_by_window(app) or self.close_by_process(app)
+        return self.close_by_process(app)
+
+    def close_by_window(self, app: str) -> bool:
+        windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
+        candidates = []
+        best = 0
+        for win in windows:
+            score = max(fuzzy_match(win[1].name(), app),
+                        fuzzy_match(win[-1], app))  # pick best match, process name or window name
+            if score < self.settings.get("thresh", 0.85):
+                continue
+            if score > best:
+                candidates = []
+            if score >= best:
+                candidates.append(win)
+                best = score
+
+        if not candidates:
+            return False
+
+        for win in candidates:
+            LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
+            self.close_window(win[0], wmctrl=self.wmctrl)
+            if not self.settings.get("terminate_all", False):
+                break
+
+        return True
+
+    def match_process(self, app: str) -> Iterable[psutil.Process]:
+        cmd, _ = match_one(app.title(), self.applist)
+        cmd = cmd.split(" ")[0].split("/")[-1]
+
+        # Retrieve the list of processes and sort by their start time (descending order)
+        processes = sorted(psutil.process_iter(['pid', 'name', 'create_time']),
+                           key=lambda proc: proc.info['create_time'], reverse=True)
+        for proc in processes:
+            if proc.status() in ["zombie"]:
+                continue
+            score = fuzzy_match(cmd, proc.info['name'])
+            if score > 0.9:
+                yield proc
+
+    def close_by_process(self, app: str) -> bool:
         """Close the application with the given name.
 
         Args:
@@ -126,20 +177,17 @@ class ApplicationLauncherSkill(FallbackSkill):
         Returns:
             True if the application was terminated successfully, False otherwise.
         """
-        cmd, _ = match_one(app.title(), self.applist)
-        cmd = cmd.split(" ")[0].split("/")[-1]
         terminated = []
-
-        for proc in psutil.process_iter(['pid', 'name']):
-            score = fuzzy_match(cmd, proc.info['name'])
-            if score > 0.9:
-                LOG.debug(f"Matched '{app}' to {proc}")
-                try:
-                    LOG.info(f"Terminating process: {proc.info['name']} (PID: {proc.info['pid']})")
-                    proc.terminate()  # or process.kill() to forcefully kill
-                    terminated.append(proc.info['pid'])
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    LOG.error(f"Failed to terminate {proc}")
+        for proc in self.match_process(app):
+            LOG.debug(f"Matched '{app}' to {proc}")
+            try:
+                LOG.info(f"Terminating process: {proc.info['name']} (PID: {proc.info['pid']})")
+                proc.terminate()  # or process.kill() to forcefully kill
+                terminated.append(proc.info['pid'])
+                if not self.settings.get("terminate_all", False):
+                    break
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                LOG.error(f"Failed to terminate {proc}")
 
         if terminated:
             LOG.debug(f"Terminated PIDs: {terminated}")
@@ -279,16 +327,70 @@ class ApplicationLauncherSkill(FallbackSkill):
 
                 yield app_info
 
+    @staticmethod
+    def close_window(window_id, wmctrl="wmctrl"):
+        try:
+            # Get the list of windows with wmctrl
+            result = subprocess.run([wmctrl, '-ic', window_id])
+            # windows are returned sorted by order of creation, but we dont have that timestamp
+            # TODO - is this true or just coincidence in my tests? i don't think it is ensured
+            if result.returncode == 0:
+                return True
+        except Exception as e:
+            pass
+
+        LOG.error("'wmctrl' command failed.")
+        return False
+
+    @staticmethod
+    def get_window_process_mapping(wmctrl="wmctrl"):
+        """Get a mapping of window objects to process objects on Linux."""
+        windows = []
+
+        try:
+            # Get the list of windows with wmctrl
+            result = subprocess.run([wmctrl, '-lp'], capture_output=True, text=True)
+            # windows are returned sorted by order of creation, but we dont have that timestamp
+            # TODO - is this true or just coincidence in my tests? i don't think it is ensured
+            if result.returncode != 0:
+                LOG.error("wmctrl command failed.")
+                return windows
+
+            # Process each line in the wmctrl output
+            for line in result.stdout.splitlines():
+                # wmctrl output format: 0x04400007  0  12345  <hostname>  <window_title>
+                fields = line.split()
+                window_id = fields[0]  # Window ID
+                pid = fields[2]  # Process ID (PID)
+
+                window_title = " ".join(fields[4:])  # Window title (everything after hostname)
+                try:
+                    # Get process object using the PID
+                    process = psutil.Process(int(pid))
+                    # Map window ID to the process object
+                    windows.append([window_id, process, process.create_time(), window_title])
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    LOG.error(f"Unable to retrieve process for PID: {pid}")
+
+        except Exception as e:
+            LOG.error(f"Error retrieving window-process mapping: {e}")
+
+        return windows[::-1]
+
+
+
 
 if __name__ == "__main__":
+    import time
     LOG.set_level("DEBUG")
     from ovos_utils.fakebus import FakeBus
     from ovos_bus_client.message import Message
 
     s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
     s.handle_fallback(Message("", {"utterance": "open firefox", "lang": "en-US"}))
-    exit()
     time.sleep(2)
+    s.handle_fallback(Message("", {"utterance": "kill firefox"}))
+    exit()
     # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     time.sleep(2)
     s.handle_fallback(Message("", {"utterance": "launch firefox", "lang": "en-UK"}))
