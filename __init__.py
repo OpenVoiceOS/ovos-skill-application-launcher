@@ -36,7 +36,8 @@ class ApplicationLauncherSkill(FallbackSkill):
         self.wmctrl = find_executable("wmctrl")
         if not self.wmctrl:
             LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
-
+        else:
+            LOG.debug(f"'wmctrl' found: {self.wmctrl}")
         self.applist = self.get_app_aliases()
         # this is a regex based intent parser
         # we handle this in fallback stage to
@@ -129,11 +130,13 @@ class ApplicationLauncherSkill(FallbackSkill):
         self.close_by_process(app)
 
     def close_by_window(self, app: str) -> bool:
-        windows = self.get_window_process_mapping()
+        windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
         candidates = []
         best = 0
         for win in windows:
             score = fuzzy_match(win[1].name(), app)
+            if score < self.settings.get("thresh", 0.85):
+                continue
             if score > best:
                 candidates = []
             if score >= best:
@@ -142,7 +145,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
         for win in candidates:
             LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
-            self.close_window(win[0])
+            self.close_window(win[0], wmctrl=self.wmctrl)
             if not self.settings.get("terminate_all", False):
                 break
 
@@ -322,26 +325,26 @@ class ApplicationLauncherSkill(FallbackSkill):
                 yield app_info
 
     @staticmethod
-    def close_window(window_id):
+    def close_window(window_id, wmctrl="wmctrl"):
         try:
             # Get the list of windows with wmctrl
-            result = subprocess.run(['wmctrl', '-ic', window_id])
+            result = subprocess.run([wmctrl, '-ic', window_id])
             # windows are returned sorted by order of creation, but we dont have that timestamp
             # TODO - is this true or just coincidence in my tests? i don't think it is ensured
             if result.returncode != 0:
-                print("Error: wmctrl command failed.")
+                LOG.error("'wmctrl' command failed.")
             return True
         except:
             return False
 
     @staticmethod
-    def get_window_process_mapping():
+    def get_window_process_mapping(wmctrl="wmctrl"):
         """Get a mapping of window objects to process objects on Linux."""
         windows = []
 
         try:
             # Get the list of windows with wmctrl
-            result = subprocess.run(['wmctrl', '-lp'], capture_output=True, text=True)
+            result = subprocess.run([wmctrl, '-lp'], capture_output=True, text=True)
             # windows are returned sorted by order of creation, but we dont have that timestamp
             # TODO - is this true or just coincidence in my tests? i don't think it is ensured
             if result.returncode != 0:
@@ -373,14 +376,16 @@ class ApplicationLauncherSkill(FallbackSkill):
 
 
 if __name__ == "__main__":
+    import time
     LOG.set_level("DEBUG")
     from ovos_utils.fakebus import FakeBus
     from ovos_bus_client.message import Message
 
     s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
     s.handle_fallback(Message("", {"utterance": "open firefox", "lang": "en-US"}))
-    exit()
     time.sleep(2)
+    s.handle_fallback(Message("", {"utterance": "kill firefox"}))
+    exit()
     # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     time.sleep(2)
     s.handle_fallback(Message("", {"utterance": "launch firefox", "lang": "en-UK"}))
