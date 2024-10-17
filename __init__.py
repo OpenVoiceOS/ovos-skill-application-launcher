@@ -220,40 +220,6 @@ class ApplicationLauncherSkill(FallbackSkill):
         return {k: v for k, v in data.items() if k in keys_of_interest}
 
     @staticmethod
-    def get_desktop_meta() -> Tuple[Set[str], Set[str], Set[str]]:
-        """Extract available languages, categories, and keywords from all desktop files.
-
-        Returns:
-            A tuple containing sets of available languages, categories, and keywords.
-        """
-        LANGS, CATEGORIES, KWRDS = set(), set(), set()
-        for p in ["/usr/share/applications/", "/usr/local/share/applications/",
-                  expanduser("~/.local/share/applications/")]:
-            if not isdir(p):
-                continue
-            for f in listdir(p):
-                if not f.endswith(".desktop"):
-                    continue
-                file_path = join(p, f)
-                config = configparser.ConfigParser(interpolation=None, delimiters=('=', ':'))
-                config.optionxform = str  # To keep case-sensitivity of keys
-                config.read(file_path)
-
-                if 'Desktop Entry' in config:
-                    keys = config['Desktop Entry'].keys()
-                    for key in keys:
-                        v = config['Desktop Entry'].get(key)
-                        if key == "Categories":
-                            CATEGORIES.update(v.split(";"))
-                        if key == "Keywords":
-                            KWRDS.update(v.split(";"))
-                        if "[" in key:
-                            l = standardize_lang_tag(key.split("[")[-1].split("]")[0])
-                            LANGS.add(l)
-
-        return LANGS, CATEGORIES, KWRDS
-
-    @staticmethod
     def get_desktop_apps(
             skip_categories: List[str],
             skip_keywords: List[str],
