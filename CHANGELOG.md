@@ -1,16 +1,16 @@
 # Changelog
 
-## [0.3.4a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.3.4a1) (2024-10-17)
+## [0.4.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.4.0a1) (2024-10-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.3.3...0.3.4a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.3.4...0.4.0a1)
 
 **Merged pull requests:**
 
-- better docs and skill settings [\#20](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/20) ([JarbasAl](https://github.com/JarbasAl))
+- feat:add sound feedback [\#22](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/22) ([JarbasAl](https://github.com/JarbasAl))
 
-## [V0.3.3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.3.3) (2024-10-17)
+## [V0.3.4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.3.4) (2024-10-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.3.3...V0.3.3)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.3.4...V0.3.4)
 
 
 
