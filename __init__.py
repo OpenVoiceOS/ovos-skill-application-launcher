@@ -75,12 +75,13 @@ class ApplicationLauncherSkill(FallbackSkill):
                 require_categories=self.settings.get("require_categories", True)
         ):
             cmd = app["Exec"].split(" ")[0].split("/")[-1].split(".")[0]
-            names = [app["Name"], app.get("GenericName"), cmd]
-            names = [n for n in names if n]
+            names = [cmd]
+            for k, v in app.items():
+                if k.startswith("Name"):
+                    names.append(v)
             names += [norm(n) for n in names]
-            names = set(n for n in names if n)
 
-            for name in names:
+            for name in set(names):
                 if 3 <= len(name) <= 20:
                     apps[name] = cmd
                 # speech friendly aliases
