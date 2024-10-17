@@ -117,7 +117,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             LOG.info(f"Matched application: {app} (command: {cmd})")
             try:
                 # Launch the application in a new process without blocking
-                subprocess.Popen(shlex.split(cmd))
+                subprocess.Popen(shlex.split(cmd), shell=self.settings.get("shell", False))
                 return True
             except Exception as e:
                 LOG.error(f"Failed to launch {app}: {e}")
