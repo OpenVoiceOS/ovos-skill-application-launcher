@@ -118,6 +118,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             try:
                 # Launch the application in a new process without blocking
                 subprocess.Popen(shlex.split(cmd), shell=self.settings.get("shell", False))
+                self.acknowledge()
                 return True
             except Exception as e:
                 LOG.error(f"Failed to launch {app}: {e}")
@@ -152,6 +153,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             if not self.settings.get("terminate_all", False):
                 break
 
+        self.acknowledge()
         return True
 
     def match_process(self, app: str) -> Iterable[psutil.Process]:
@@ -190,6 +192,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.error(f"Failed to terminate {proc}")
 
         if terminated:
+            self.acknowledge()
             LOG.debug(f"Terminated PIDs: {terminated}")
             return True
         return False
