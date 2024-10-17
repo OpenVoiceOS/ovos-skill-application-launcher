@@ -14,6 +14,7 @@ Scanned folders:
 ## Examples 
 * "Open Volume Control"
 * "Launch Firefox"
+* "Close Firefox"
 
 ## Category
 **Productivity**
