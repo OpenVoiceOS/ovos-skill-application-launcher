@@ -426,6 +426,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.error("wmctrl command failed.")
                 return []
 
+            LOG.debug(f"'wmctl' stdout: {result.stdout}")
             # Process each line in the wmctrl output
             for line in result.stdout.splitlines():
                 # wmctrl output format: 0x04400007  0  12345  <hostname>  <window_title>
