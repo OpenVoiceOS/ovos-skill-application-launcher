@@ -155,7 +155,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
     def is_running(self, app: str) -> bool:
         """ check if a application is running"""
-        if self.match_window(app):
+        if self.wmctl is not None and self.match_window(app):
             return True
         for p in self.match_process(app):
             return True
