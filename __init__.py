@@ -109,7 +109,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                     if switch and switch == "yes":
                         win = self.match_window(app)
                         window_id = win[0][0] if win else None
-                        self.switch_window(window_id, self.wmctrl)
+                        self.switch_window(window_id)
                         return True
         if not switch:
             for i in range(5):
@@ -355,7 +355,7 @@ class ApplicationLauncherSkill(FallbackSkill):
     #########
     # Window management
     def match_window(self, app: str) -> List[WindowMatch]:
-        windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
+        windows = self.get_window_process_mapping()
         candidates = []
         best = 0
         for win in windows:
@@ -379,17 +379,16 @@ class ApplicationLauncherSkill(FallbackSkill):
 
         for win in candidates:
             LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
-            self.close_window(win[0], wmctrl=self.wmctrl)
+            self.close_window(win[0])
             if not self.settings.get("terminate_all", False):
                 break
 
         self.acknowledge()
         return True
 
-    @staticmethod
-    def switch_window(window_id, wmctrl="wmctrl") -> bool:
+    def switch_window(self, window_id) -> bool:
         try:
-            result = subprocess.run([wmctrl, '-iR', window_id])
+            result = subprocess.run([self.wmctrl, '-iR', window_id])
             if result.returncode == 0:
                 self.acknowledge()
                 return True
@@ -398,10 +397,9 @@ class ApplicationLauncherSkill(FallbackSkill):
         LOG.error("'wmctrl' command failed.")
         return False
 
-    @staticmethod
-    def close_window(window_id, wmctrl="wmctrl") -> bool:
+    def close_window(self, window_id) -> bool:
         try:
-            result = subprocess.run([wmctrl, '-ic', window_id])
+            result = subprocess.run([self.wmctrl, '-ic', window_id])
             if result.returncode == 0:
                 return True
         except Exception as e:
@@ -410,14 +408,13 @@ class ApplicationLauncherSkill(FallbackSkill):
         LOG.error("'wmctrl' command failed.")
         return False
 
-    @staticmethod
-    def get_window_process_mapping(wmctrl="wmctrl") -> List[WindowMatch]:
+    def get_window_process_mapping(self) -> List[WindowMatch]:
         """Get a mapping of window objects to process objects on Linux."""
         windows = []
 
         try:
             # Get the list of windows with wmctrl
-            result = subprocess.run([wmctrl, '-lp'], capture_output=True, text=True)
+            result = subprocess.run([self.wmctrl, '-lp'], capture_output=True, text=True)
             # windows are returned sorted by order of creation, but we dont have that timestamp
             # TODO - is this true or just coincidence in my tests? i don't think it is ensured
             if result.returncode != 0:
