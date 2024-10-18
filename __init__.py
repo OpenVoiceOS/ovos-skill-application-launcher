@@ -4,8 +4,8 @@ import shlex
 import subprocess
 from os import listdir
 from os.path import expanduser, isdir, join
-from typing import Dict, List, Union, Generator, Optional, Iterable
 from shutil import which
+from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
 
 import psutil
 from langcodes import closest_match
@@ -15,6 +15,8 @@ from ovos_utils.log import LOG
 from ovos_utils.parse import match_one, fuzzy_match
 from ovos_workshop.skills.fallback import FallbackSkill
 from padacioso import IntentContainer
+
+WindowMatch = Tuple[str, psutil.Process, float, str]  # for easy typing
 
 
 class ApplicationLauncherSkill(FallbackSkill):
@@ -64,44 +66,26 @@ class ApplicationLauncherSkill(FallbackSkill):
                                for option in expand_options(line)]
                     self.intent_matchers[l2].add_intent(intent_name, samples)
 
-    def get_app_aliases(self) -> Dict[str, str]:
-        """Fetch application aliases based on desktop files and settings."""
-        apps = self.settings.get("user_commands") or {}
-        norm = lambda k: k.replace(".desktop", "").replace("-", " ").replace("_", " ").split(".")[-1].title()
+    def handle_fallback(self, message) -> bool:
+        """Handle fallback utterances for launching and closing applications."""
+        utterance = message.data.get("utterance", "")
+        best_lang, score = closest_match(self.lang, list(self.intent_matchers.keys()))
 
-        for app in self.get_desktop_apps(
-                skip_categories=self.settings.get("skip_categories",
-                                                  ['Settings', 'ConsoleOnly', 'Building']),
-                skip_keywords=self.settings.get("skip_keywords", []),
-                target_categories=self.settings.get("target_categories", []),
-                target_keywords=self.settings.get("target_keywords", []),
-                blacklist=self.settings.get("blacklist", []),
-                extra_langs=self.native_langs,
-                require_icon=self.settings.get("require_icon", True),
-                require_categories=self.settings.get("require_categories", True)
-        ):
-            cmd = app["Exec"].split(" ")[0].split("/")[-1].split(".")[0]
-            names = [cmd]
-            for k, v in app.items():
-                if k.startswith("Name"):
-                    names.append(v)
-            names += [norm(n) for n in names]
+        if score >= 10:
+            # unsupported lang
+            return False
 
-            for name in set(names):
-                if 3 <= len(name) <= 20:
-                    apps[name] = cmd
-                # speech friendly aliases
-                if name in self.settings.get("aliases", {}):
-                    for alias in self.settings["aliases"][name]:
-                        apps[alias] = cmd
-                # KDE likes to replace every C with a K
-                if name.startswith("K") and "KDE" in app.get("Categories", []):
-                    alias = "C" + name[1:]
-                    if alias not in apps:
-                        apps[alias] = cmd
-            LOG.debug(f"found app {app['Name']} with aliases: {names}")
+        best_lang = standardize_lang_tag(best_lang)
+        res = self.intent_matchers[best_lang].calc_intent(utterance)
 
-        return apps
+        app = res.get('entities', {}).get("application")
+        if app:
+            LOG.debug(f"Application name match: {res}")
+            if res["name"] == "launch":
+                return self.launch_app(app)
+            elif res["name"] == "close":
+                return self.close_app(app)
+        return False
 
     def launch_app(self, app: str) -> bool:
         """Launch an application by name if a match is found.
@@ -112,6 +96,25 @@ class ApplicationLauncherSkill(FallbackSkill):
         Returns:
             True if the application is launched successfully, False otherwise.
         """
+        launch = True
+        switch = False
+
+        if self.is_running(app):
+            self.speak_dialog("already_running", {"application": app})
+
+            if self.wmctrl:
+                # TODO - prompt user if they want to switch to open window
+                switch = True
+                if switch:
+                    win = self.match_window(app)
+                    window_id = win[0][0] if win else None
+                    self.switch_window(window_id, self.wmctrl)
+                    return True
+            if not switch:
+                # TODO - prompt user if they want to launch a new instance
+                if not launch:
+                    return True
+
         cmd, score = match_one(app.title(), self.applist)
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
@@ -124,38 +127,21 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.error(f"Failed to launch {app}: {e}")
         return False
 
-    def close_app(self, app: str):
+    def close_app(self, app: str) -> bool:
         if self.wmctrl:
             return self.close_by_window(app) or self.close_by_process(app)
         return self.close_by_process(app)
 
-    def close_by_window(self, app: str) -> bool:
-        windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
-        candidates = []
-        best = 0
-        for win in windows:
-            score = max(fuzzy_match(win[1].name(), app),
-                        fuzzy_match(win[-1], app))  # pick best match, process name or window name
-            if score < self.settings.get("thresh", 0.85):
-                continue
-            if score > best:
-                candidates = []
-            if score >= best:
-                candidates.append(win)
-                best = score
+    def is_running(self, app: str) -> bool:
+        """ check if a application is running"""
+        if self.match_window(app):
+            return True
+        for p in self.match_process(app):
+            return True
+        return False
 
-        if not candidates:
-            return False
-
-        for win in candidates:
-            LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
-            self.close_window(win[0], wmctrl=self.wmctrl)
-            if not self.settings.get("terminate_all", False):
-                break
-
-        self.acknowledge()
-        return True
-
+    #########
+    # process management
     def match_process(self, app: str) -> Iterable[psutil.Process]:
         cmd, _ = match_one(app.title(), self.applist)
         cmd = cmd.split(" ")[0].split("/")[-1]
@@ -197,26 +183,46 @@ class ApplicationLauncherSkill(FallbackSkill):
             return True
         return False
 
-    def handle_fallback(self, message) -> bool:
-        """Handle fallback utterances for launching and closing applications."""
-        utterance = message.data.get("utterance", "")
-        best_lang, score = closest_match(self.lang, list(self.intent_matchers.keys()))
+    #########
+    # .desktop file management
+    def get_app_aliases(self) -> Dict[str, str]:
+        """Fetch application aliases based on desktop files and settings."""
+        apps = self.settings.get("user_commands") or {}
+        norm = lambda k: k.replace(".desktop", "").replace("-", " ").replace("_", " ").split(".")[-1].title()
 
-        if score >= 10:
-            # unsupported lang
-            return False
+        for app in self.get_desktop_apps(
+                skip_categories=self.settings.get("skip_categories",
+                                                  ['Settings', 'ConsoleOnly', 'Building']),
+                skip_keywords=self.settings.get("skip_keywords", []),
+                target_categories=self.settings.get("target_categories", []),
+                target_keywords=self.settings.get("target_keywords", []),
+                blacklist=self.settings.get("blacklist", []),
+                extra_langs=self.native_langs,
+                require_icon=self.settings.get("require_icon", True),
+                require_categories=self.settings.get("require_categories", True)
+        ):
+            cmd = app["Exec"].split(" ")[0].split("/")[-1].split(".")[0]
+            names = [cmd]
+            for k, v in app.items():
+                if k.startswith("Name"):
+                    names.append(v)
+            names += [norm(n) for n in names]
 
-        best_lang = standardize_lang_tag(best_lang)
-        res = self.intent_matchers[best_lang].calc_intent(utterance)
+            for name in set(names):
+                if 3 <= len(name) <= 20:
+                    apps[name] = cmd
+                # speech friendly aliases
+                if name in self.settings.get("aliases", {}):
+                    for alias in self.settings["aliases"][name]:
+                        apps[alias] = cmd
+                # KDE likes to replace every C with a K
+                if name.startswith("K") and "KDE" in app.get("Categories", []):
+                    alias = "C" + name[1:]
+                    if alias not in apps:
+                        apps[alias] = cmd
+            LOG.debug(f"found app {app['Name']} with aliases: {names}")
 
-        app = res.get('entities', {}).get("application")
-        if app:
-            LOG.debug(f"Application name match: {res}")
-            if res["name"] == "launch":
-                return self.launch_app(app)
-            elif res["name"] == "close":
-                return self.close_app(app)
-        return False
+        return apps
 
     @staticmethod
     def parse_desktop_file(file_path: str, extra_langs: Optional[List[str]] = None) -> Dict[str, Union[str, List[str]]]:
@@ -330,13 +336,55 @@ class ApplicationLauncherSkill(FallbackSkill):
 
                 yield app_info
 
+    #########
+    # Window management
+    def match_window(self, app: str) -> List[WindowMatch]:
+        windows = self.get_window_process_mapping(wmctrl=self.wmctrl)
+        candidates = []
+        best = 0
+        for win in windows:
+            score = max(fuzzy_match(win[1].name(), app),
+                        fuzzy_match(win[-1], app))  # pick best match, process name or window name
+            if score < self.settings.get("thresh", 0.85):
+                continue
+            if score > best:
+                candidates = []
+            if score >= best:
+                candidates.append(win)
+                best = score
+        return candidates
+
+    def close_by_window(self, app: str) -> bool:
+
+        candidates = self.match_window(app)
+
+        if not candidates:
+            return False
+
+        for win in candidates:
+            LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
+            self.close_window(win[0], wmctrl=self.wmctrl)
+            if not self.settings.get("terminate_all", False):
+                break
+
+        self.acknowledge()
+        return True
+
     @staticmethod
-    def close_window(window_id, wmctrl="wmctrl"):
+    def switch_window(window_id, wmctrl="wmctrl") -> bool:
         try:
-            # Get the list of windows with wmctrl
+            result = subprocess.run([wmctrl, '-iR', window_id])
+            if result.returncode == 0:
+                return True
+        except Exception as e:
+            pass
+        LOG.error("'wmctrl' command failed.")
+        return False
+
+    @staticmethod
+    def close_window(window_id, wmctrl="wmctrl") -> bool:
+        try:
             result = subprocess.run([wmctrl, '-ic', window_id])
-            # windows are returned sorted by order of creation, but we dont have that timestamp
-            # TODO - is this true or just coincidence in my tests? i don't think it is ensured
             if result.returncode == 0:
                 return True
         except Exception as e:
@@ -346,7 +394,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         return False
 
     @staticmethod
-    def get_window_process_mapping(wmctrl="wmctrl"):
+    def get_window_process_mapping(wmctrl="wmctrl") -> List[WindowMatch]:
         """Get a mapping of window objects to process objects on Linux."""
         windows = []
 
@@ -357,7 +405,7 @@ class ApplicationLauncherSkill(FallbackSkill):
             # TODO - is this true or just coincidence in my tests? i don't think it is ensured
             if result.returncode != 0:
                 LOG.error("wmctrl command failed.")
-                return windows
+                return []
 
             # Process each line in the wmctrl output
             for line in result.stdout.splitlines():
@@ -371,7 +419,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                     # Get process object using the PID
                     process = psutil.Process(int(pid))
                     # Map window ID to the process object
-                    windows.append([window_id, process, process.create_time(), window_title])
+                    windows.append((window_id, process, process.create_time(), window_title))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     LOG.error(f"Unable to retrieve process for PID: {pid}")
 
@@ -381,10 +429,9 @@ class ApplicationLauncherSkill(FallbackSkill):
         return windows[::-1]
 
 
-
-
 if __name__ == "__main__":
     import time
+
     LOG.set_level("DEBUG")
     from ovos_utils.fakebus import FakeBus
     from ovos_bus_client.message import Message
@@ -392,7 +439,7 @@ if __name__ == "__main__":
     s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
     s.handle_fallback(Message("", {"utterance": "open firefox", "lang": "en-US"}))
     time.sleep(2)
-    s.handle_fallback(Message("", {"utterance": "kill firefox"}))
+    # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     exit()
     # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
     time.sleep(2)
