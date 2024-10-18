@@ -9,6 +9,7 @@ from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
 
 import psutil
 from langcodes import closest_match
+from ovos_bus_client.message import Message
 from ovos_utils.bracket_expansion import expand_options
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
@@ -47,6 +48,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         self.register_fallback_intents()
         # before common_query, otherwise we get info about the app instead
         self.register_fallback(self.handle_fallback, 4)
+        self.add_event(f"{self.skill_id}.async_prompt", self.handle_async_prompt)
 
     def register_fallback_intents(self) -> None:
         """Register fallback intents from locale files."""
@@ -82,10 +84,43 @@ class ApplicationLauncherSkill(FallbackSkill):
         if app:
             LOG.debug(f"Application name match: {res}")
             if res["name"] == "launch":
+                if self.is_running(app):
+                    self.bus.emit(message.forward(f"{self.skill_id}.async_prompt", {"app": app}))
+                    return True
                 return self.launch_app(app)
             elif res["name"] == "close":
                 return self.close_app(app)
         return False
+
+    def handle_async_prompt(self, message: Message):
+        app = message.data["app"]
+        # in order for fallback to not time out we can't ask user questions in the other handler
+        # so we consume the utterance first, and then proceed to ask the user to clarify action
+        launch = True
+        switch = False
+
+        self.speak_dialog("already_running", {"application": app})
+
+        if self.wmctrl:
+            for i in range(5):
+                if switch not in ["no", "yes"]:
+                    switch = self.ask_yesno("confirm_switch")
+                    LOG.debug(f"user confirmation: {switch}")
+                    if switch and switch == "yes":
+                        win = self.match_window(app)
+                        window_id = win[0][0] if win else None
+                        self.switch_window(window_id, self.wmctrl)
+                        return True
+        if not switch:
+            for i in range(5):
+                if launch not in ["no", "yes"]:
+                    launch = self.ask_yesno("confirm_launch")
+                    LOG.debug(f"user confirmation: {launch}")
+                    if launch == "no":
+                        return True  # no action
+
+        # launch
+        self.launch_app(app)
 
     def launch_app(self, app: str) -> bool:
         """Launch an application by name if a match is found.
@@ -96,25 +131,6 @@ class ApplicationLauncherSkill(FallbackSkill):
         Returns:
             True if the application is launched successfully, False otherwise.
         """
-        launch = True
-        switch = False
-
-        if self.is_running(app):
-            self.speak_dialog("already_running", {"application": app})
-
-            if self.wmctrl:
-                # TODO - prompt user if they want to switch to open window
-                switch = True
-                if switch:
-                    win = self.match_window(app)
-                    window_id = win[0][0] if win else None
-                    self.switch_window(window_id, self.wmctrl)
-                    return True
-            if not switch:
-                # TODO - prompt user if they want to launch a new instance
-                if not launch:
-                    return True
-
         cmd, score = match_one(app.title(), self.applist)
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
@@ -375,6 +391,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         try:
             result = subprocess.run([wmctrl, '-iR', window_id])
             if result.returncode == 0:
+                self.acknowledge()
                 return True
         except Exception as e:
             pass
