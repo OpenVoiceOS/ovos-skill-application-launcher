@@ -35,11 +35,16 @@ class ApplicationLauncherSkill(FallbackSkill):
             # "application name": "bash command"
             self.settings["user_commands"] = {}
 
-        self.wmctrl = which("wmctrl")
-        if not self.wmctrl:
-            LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
+        self.wmctrl = None
+        if not self.settings.get("disable_window_manager", False):
+            self.wmctrl = which("wmctrl")
+            if not self.wmctrl:
+                LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
+            else:
+                LOG.debug(f"'wmctrl' found: {self.wmctrl}")
         else:
-            LOG.debug(f"'wmctrl' found: {self.wmctrl}")
+            LOG.debug(f"window manager disabled for {self.skill_id}")
+
         self.applist = self.get_app_aliases()
         # this is a regex based intent parser
         # we handle this in fallback stage to
@@ -101,7 +106,7 @@ class ApplicationLauncherSkill(FallbackSkill):
 
         self.speak_dialog("already_running", {"application": app})
 
-        if self.wmctrl:
+        if self.wmctrl and not self.settings.get("disable_window_manager", False):
             for i in range(5):
                 if switch not in ["no", "yes"]:
                     switch = self.ask_yesno("confirm_switch")
@@ -144,7 +149,7 @@ class ApplicationLauncherSkill(FallbackSkill):
         return False
 
     def close_app(self, app: str) -> bool:
-        if self.wmctrl:
+        if self.wmctrl and not self.settings.get("disable_window_manager", False):
             return self.close_by_window(app) or self.close_by_process(app)
         return self.close_by_process(app)
 
@@ -421,6 +426,7 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.error("wmctrl command failed.")
                 return []
 
+            LOG.debug(f"'wmctl' stdout: {result.stdout}")
             # Process each line in the wmctrl output
             for line in result.stdout.splitlines():
                 # wmctrl output format: 0x04400007  0  12345  <hostname>  <window_title>
