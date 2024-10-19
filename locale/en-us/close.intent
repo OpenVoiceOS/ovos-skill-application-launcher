@@ -1,5 +1,5 @@
 close {application}
-terminate {application}
-kill {application}
 exit {application}
+kill {application}
 quit {application}
+terminate {application}
