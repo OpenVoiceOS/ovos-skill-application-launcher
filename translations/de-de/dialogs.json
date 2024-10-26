@@ -1,0 +1,13 @@
+{
+  "confirm_launch.dialog": [
+    "Möchten Sie ein neues Anwendungsfenster öffnen?",
+    "Möchten Sie die Anwendung (ein weiteres mal|noch einmal) (starten|öffnen)"
+  ],
+  "confirm_switch.dialog": [
+    "Möchten Sie in (das|die) geöffnete (Fenster|Anwendung) wechseln"
+  ],
+  "already_running.dialog": [
+    "{application} ist bereits (gestartet|geöffnet)",
+    "Ich erkenne, dass {application} bereits (gestartet|geöffnet) ist"
+  ]
+}
