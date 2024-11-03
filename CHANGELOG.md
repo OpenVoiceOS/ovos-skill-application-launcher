@@ -1,25 +1,16 @@
 # Changelog
 
-## [0.5.3a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.3a2) (2024-10-31)
+## [0.5.4a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.4a1) (2024-11-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.3a1...0.5.3a2)
-
-**Merged pull requests:**
-
-- feat:disable window manager setting [\#33](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/33) ([JarbasAl](https://github.com/JarbasAl))
-- de-de/translate [\#32](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/32) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
-
-## [0.5.3a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.3a1) (2024-10-26)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.2...0.5.3a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.3...0.5.4a1)
 
 **Merged pull requests:**
 
-- de-de/translate [\#31](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/31) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
+- da-dk/translate [\#35](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/35) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
-## [V0.5.2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.2) (2024-10-19)
+## [V0.5.3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.3) (2024-10-31)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.2...V0.5.2)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.3...V0.5.3)
 
 
 
