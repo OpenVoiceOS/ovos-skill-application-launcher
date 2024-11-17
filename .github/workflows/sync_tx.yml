@@ -1,4 +1,4 @@
-name: Run script on merge to dev by gitlocalize-app
+name: gitlocalize sync
 
 on:
   workflow_dispatch:
