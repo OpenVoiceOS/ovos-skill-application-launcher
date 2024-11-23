@@ -3,5 +3,12 @@
     "inicia (el |la |l'|sa|s'|){application}",
     "obre (el |la |l'|sa|s'|){application}",
     "executa (el |la |l'|sa|s'|){application}"
+  ],
+  "close.intent": [
+    "tanca {application}",
+    "(termina|finalitza) {application}",
+    "mata {application}",
+    "surt (de |d'){application}",
+    "ix (de |d'){application}"
   ]
 }
