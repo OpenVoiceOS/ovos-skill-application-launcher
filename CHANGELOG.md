@@ -1,16 +1,25 @@
 # Changelog
 
-## [0.5.6a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.6a1) (2024-11-19)
+## [0.5.7a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a1) (2024-11-23)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.5...0.5.6a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7a1...0.5.7a1)
 
 **Merged pull requests:**
 
-- fix:allow workshop 3.0.0 [\#40](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/40) ([JarbasAl](https://github.com/JarbasAl))
+- Add Catalan translation [\#42](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/42) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
-## [V0.5.5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.5) (2024-11-17)
+## [0.5.7a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a1) (2024-11-23)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.5...V0.5.5)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.6...0.5.7a1)
+
+**Merged pull requests:**
+
+- Add Catalan translation [\#44](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/44) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
+- Add Catalan translation [\#43](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/43) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
+
+## [V0.5.6](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.6) (2024-11-19)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.6...V0.5.6)
 
 
 
