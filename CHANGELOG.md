@@ -1,11 +1,12 @@
 # Changelog
 
-## [0.5.7a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a1) (2024-11-23)
+## [0.5.7a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a2) (2024-11-25)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7a1...0.5.7a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7a1...0.5.7a2)
 
 **Merged pull requests:**
 
+- da-dk/translate [\#45](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/45) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 - Add Catalan translation [\#42](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/42) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
 ## [0.5.7a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a1) (2024-11-23)
