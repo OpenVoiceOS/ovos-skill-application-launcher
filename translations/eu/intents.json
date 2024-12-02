@@ -1,0 +1,8 @@
+{
+    "launch.intent": [
+        "abiarazi {application}",
+        "ireki {application}",
+        "jarri martxan {application}"
+    ],
+    "close.intent": []
+}
