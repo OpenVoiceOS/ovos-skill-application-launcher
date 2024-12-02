@@ -1,16 +1,16 @@
 # Changelog
 
-## [0.5.9a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.9a1) (2024-12-02)
+## [0.5.10a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.10a1) (2024-12-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.8...0.5.9a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.9...0.5.10a1)
 
 **Merged pull requests:**
 
-- import galician translations [\#49](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/49) ([JarbasAl](https://github.com/JarbasAl))
+- import galician and basque translations [\#51](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/51) ([JarbasAl](https://github.com/JarbasAl))
 
-## [V0.5.8](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.8) (2024-11-30)
+## [V0.5.9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.9) (2024-12-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.8...V0.5.8)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9...V0.5.9)
 
 
 
