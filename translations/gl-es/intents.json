@@ -1,8 +1,7 @@
 {
     "launch.intent": [
-        "iniciar {application}",
         "abrir {application}",
-        "executar {application}"
-    ],
-    "close.intent": []
+        "executar {application}",
+        "iniciar {application}"
+    ]
 }

@@ -1,14 +1,14 @@
 {
-  "launch.intent": [
-    "starte {application}",
-    "öffne {application}",
-    "lasse {application} laufen"
-  ],
-  "close.intent": [
-    "schließe {application}",
-    "beende {application}",
-    "{application} schließen",
-    "beende {application",
-    " {Anwendung} beenden"
-  ]
+    "close.intent": [
+        "beende {application",
+        "beende {application}",
+        "schließe {application}",
+        "{application} beenden",
+        "{application} schließen"
+    ],
+    "launch.intent": [
+        "lasse {application} laufen",
+        "starte {application}",
+        "öffne {application}"
+    ]
 }

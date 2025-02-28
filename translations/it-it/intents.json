@@ -1,14 +1,13 @@
 {
-  "launch.intent": [
-    "usa {application}",
-    "apri {application}",
-    "avvia {application}"
-  ],
-  "close.intent": [
-    "chiudi {application}",
-    "termina {application}",
-    "uccidi {application}",
-    "esci da(l|lo|la|) {application}",
-    "chiudi {application}"
-  ]
+    "close.intent": [
+        "chiudi {application}",
+        "esci da(l|lo|la|) {application}",
+        "termina {application}",
+        "uccidi {application}"
+    ],
+    "launch.intent": [
+        "apri {application}",
+        "avvia {application}",
+        "usa {application}"
+    ]
 }

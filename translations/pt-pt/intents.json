@@ -1,7 +1,7 @@
 {
-  "launch.intent": [
-    "(lança|lançar) {application}",
-    "(abre|abrir) {application}",
-    "(corre|correr) {application}"
-  ]
+    "launch.intent": [
+        "(abre|abrir) {application}",
+        "(corre|correr) {application}",
+        "(lança|lançar) {application}"
+    ]
 }

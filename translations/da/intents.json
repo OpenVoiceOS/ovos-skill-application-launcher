@@ -1,14 +1,13 @@
 {
-  "launch.intent": [
-    "start {application}",
-    "åben {application}",
-    "kør {application}"
-  ],
-  "close.intent": [
-    "luk {application}",
-    "afbryd {application}",
-    "dræb {application}",
-    "afslut {application}",
-    "luk {application}"
-  ]
+    "close.intent": [
+        "afbryd {application}",
+        "afslut {application}",
+        "dræb {application}",
+        "luk {application}"
+    ],
+    "launch.intent": [
+        "kør {application}",
+        "start {application}",
+        "åben {application}"
+    ]
 }

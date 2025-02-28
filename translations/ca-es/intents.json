@@ -1,14 +1,14 @@
 {
-  "launch.intent": [
-    "inicia (el |la |l'|sa|s'|){application}",
-    "obre (el |la |l'|sa|s'|){application}",
-    "executa (el |la |l'|sa|s'|){application}"
-  ],
-  "close.intent": [
-    "tanca {application}",
-    "(termina|finalitza) {application}",
-    "mata {application}",
-    "surt (de |d'){application}",
-    "ix (de |d'){application}"
-  ]
+    "close.intent": [
+        "(termina|finalitza) {application}",
+        "ix (de|d') {application}",
+        "mata {application}",
+        "surt (de|d') {application}",
+        "tanca {application}"
+    ],
+    "launch.intent": [
+        "executa (el|la|l'|sa|s'|) {application}",
+        "inicia (el|la|l'|sa|s'|) {application}",
+        "obre (el|la|l'|sa|s'|) {application}"
+    ]
 }
