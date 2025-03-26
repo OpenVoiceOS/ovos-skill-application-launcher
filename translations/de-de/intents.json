@@ -1,6 +1,6 @@
 {
   "launch.intent": [
-    "starte {application}",
+    "starte {application}\n{application} starten",
     "öffne {application}",
     "lasse {application} laufen"
   ],
@@ -8,7 +8,7 @@
     "schließe {application}",
     "beende {application}",
     "{application} schließen",
-    "beende {application",
-    " {Anwendung} beenden"
+    "beende {application}",
+    " {application} beenden"
   ]
 }
