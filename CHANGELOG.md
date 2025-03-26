@@ -1,16 +1,20 @@
 # Changelog
 
-## [0.5.10a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.10a1) (2024-12-02)
+## [0.5.11a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11a2) (2025-03-26)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.9...0.5.10a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.11a1...0.5.11a2)
 
 **Merged pull requests:**
 
-- import galician and basque translations [\#51](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/51) ([JarbasAl](https://github.com/JarbasAl))
+- updating German translation [\#55](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/55) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
-## [V0.5.9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.9) (2024-12-02)
+## [0.5.11a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11a1) (2025-01-25)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9...V0.5.9)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.10...0.5.11a1)
+
+**Merged pull requests:**
+
+- fix automations [\#53](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/53) ([JarbasAl](https://github.com/JarbasAl))
 
 
 
