@@ -1,0 +1,13 @@
+{
+  "confirm_launch.dialog": [
+    "Queres (iniciar/abrir) unha nova xanela da aplicación?",
+    "Queres (iniciar/abrir) a aplicación (de novo/unha vez máis)?"
+  ],
+  "confirm_switch.dialog": [
+    "Queres (focalizar/cambiar a) a (xanela/aplicación) aberta?"
+  ],
+  "already_running.dialog": [
+    "{application} xa está (lanzada|iniciada|en execución|a executarse|executándose|aberta)",
+    "Eu (vexo|detecto|noto) que {application} xa está (lanzada|iniciada|en execución|a executarse|executándose|aberta)"
+  ]
+}
