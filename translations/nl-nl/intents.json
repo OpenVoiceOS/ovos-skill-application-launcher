@@ -1,7 +1,14 @@
 {
-    "launch.intent": [
-        "start {application}",
-        "open {application}",
-        "draai {application}"
-    ]
+  "launch.intent": [
+    "start {application}",
+    "open {application}",
+    "draai {application}"
+  ],
+  "close.intent": [
+    "sluit {application}",
+    "{application} beëindigen",
+    "{application} stoppen",
+    "verlaat {application}",
+    "stop {application}"
+  ]
 }
