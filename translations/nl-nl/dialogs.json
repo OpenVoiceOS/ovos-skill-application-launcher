@@ -1,0 +1,13 @@
+{
+  "confirm_launch.dialog": [
+    "Wil je een nieuw applicatievenster (starten|openen)",
+    "Wil je de applicatie (opnieuw) starten?"
+  ],
+  "confirm_switch.dialog": [
+    "Wil je (focussen|overschakelen naar) (de|het) geopende (venster|applicatie)"
+  ],
+  "already_running.dialog": [
+    "{application} is al (gestart|geopend)",
+    "Ik zie dat {applicatie} al (gestart|geopend) is"
+  ]
+}
