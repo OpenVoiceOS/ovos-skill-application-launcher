@@ -6,14 +6,15 @@ from os import listdir
 from os.path import expanduser, isdir, join
 from shutil import which
 from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
-
+from functools import lru_cache
 import psutil
 from langcodes import closest_match
 from ovos_bus_client.message import Message
-from ovos_utils.bracket_expansion import expand_options
+from ovos_utils.bracket_expansion import expand_template
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
 from ovos_utils.parse import match_one, fuzzy_match
+from ovos_workshop.decorators import fallback_handler
 from ovos_workshop.skills.fallback import FallbackSkill
 from padacioso import IntentContainer
 
@@ -51,9 +52,17 @@ class ApplicationLauncherSkill(FallbackSkill):
         # allow more control over matching application names
         self.intent_matchers = {}
         self.register_fallback_intents()
-        # before common_query, otherwise we get info about the app instead
-        self.register_fallback(self.handle_fallback, 4)
         self.add_event(f"{self.skill_id}.async_prompt", self.handle_async_prompt)
+
+    @lru_cache(10)
+    def match_app(self, utterance: str, lang: str) -> Optional[Dict]:
+        best_lang, score = closest_match(lang, list(self.intent_matchers.keys()))
+        if score >= 10:
+            # unsupported lang
+            return None
+        best_lang = standardize_lang_tag(best_lang)
+        res = self.intent_matchers[best_lang].calc_intent(utterance)
+        return res
 
     def register_fallback_intents(self) -> None:
         """Register fallback intents from locale files."""
@@ -70,21 +79,19 @@ class ApplicationLauncherSkill(FallbackSkill):
                 with open(launch) as f:
                     samples = [option for line in f.read().split("\n")
                                if not line.startswith("#") and line.strip()
-                               for option in expand_options(line)]
+                               for option in expand_template(line)]
                     self.intent_matchers[l2].add_intent(intent_name, samples)
 
+    def can_answer(self, message: Message) -> bool:
+        utterance = message.data["utterances"][0]
+        res = self.match_app(utterance, self.lang)
+        return bool(res.get('entities', {}).get("application"))
+
+    @fallback_handler(priority=4)
     def handle_fallback(self, message) -> bool:
         """Handle fallback utterances for launching and closing applications."""
         utterance = message.data.get("utterance", "")
-        best_lang, score = closest_match(self.lang, list(self.intent_matchers.keys()))
-
-        if score >= 10:
-            # unsupported lang
-            return False
-
-        best_lang = standardize_lang_tag(best_lang)
-        res = self.intent_matchers[best_lang].calc_intent(utterance)
-
+        res = self.match_app(utterance, self.lang)
         app = res.get('entities', {}).get("application")
         if app:
             LOG.debug(f"Application name match: {res}")
