@@ -11,7 +11,7 @@ on:
 jobs:
   build_and_test:
     strategy:
-      max-parallel: 2
+      max-parallel: 3
       matrix:
         python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13" ]
         os: [macos-latest]
