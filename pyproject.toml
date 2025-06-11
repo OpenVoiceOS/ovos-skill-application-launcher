@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "skill-mac-application-launcher"
+dynamic = ["version"]
+description = "Launch Mac desktop applications by voice"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    {name = "OscillateLabsLLC", email = "mike@oscillatelabs.net"}
+]
+keywords = ["ovos", "neon", "skill", "plugin", "macos", "application", "launcher"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "padacioso>=0.1.1",
+    "psutil",
+    "ovos-bus-client>=1.3.4",
+    "ovos-workshop>=3.1.2",
+    "ovos-utils>=0.8.1",
+    "ovos-plugin-manager~=0.9.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/OscillateLabsLLC/skill-mac-application-launcher"
+Repository = "https://github.com/OscillateLabsLLC/skill-mac-application-launcher"
+"Bug Tracker" = "https://github.com/OscillateLabsLLC/skill-mac-application-launcher/issues"
+
+[project.entry-points."ovos.plugin.skill"]
+"skill-mac-application-launcher.oscillatelabsllc" = "skill_mac_application_launcher:MacApplicationLauncherSkill"
+
+[tool.hatch.version]
+source = "code"
+path = "skill_mac_application_launcher/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["skill_mac_application_launcher"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --cov=skill_mac_application_launcher --cov-report=term-missing"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 119
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle
+    "F", # pyflakes
+    "I", # isort
+]
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
+combine-as-imports = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "build>=1.2.2.post1",
+    "mypy>=1.16.0",
+    "pytest>=8.4.0",
+    "pytest-cov>=6.1.1",
+    "ruff>=0.11.13",
+]

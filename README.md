@@ -1,69 +1,111 @@
-# <img src='https://rawgithub.com/FortAwesome/Font-Awesome/master/svgs/solid/spinner.svg' card_color='#22a7f0' width='50' height='50' style='vertical-align:bottom'/> Application Launcher
+# <img src='https://rawgithub.com/FortAwesome/Font-Awesome/master/svgs/solid/spinner.svg' card_color='#22a7f0' width='50' height='50' style='vertical-align:bottom'/> Mac Application Launcher
 
-Application Launcher
+Launch macOS applications by voice
 
-> **NOTE**: this skill only works on Linux desktop environments!
+> **NOTE**: This skill only works on macOS systems!
 
 ## About
 
-Launch applications on the Linux desktop
+Launch applications on macOS using voice commands through OVOS (Open Voice OS).
 
-The standard directories will be scanned for [.desktop files](https://wiki.archlinux.org/title/desktop_entries),
-application names and execution commands will be parsed from there
+The skill automatically discovers applications by scanning standard macOS application directories and parsing `.app` bundles to extract application metadata including names, bundle identifiers, and versions.
 
-Scanned folders:
+Scanned directories:
 
-- /usr/share/applications/
-- /usr/local/share/applications/
-- ~/.local/share/applications/
+- `/Applications`
+- `/System/Applications`
+- `/Applications/Utilities`
+- `/System/Library/CoreServices`
+- `/System/Applications/Utilities`
+- `~/Applications`
 
 ## Examples
 
-* "Open Volume Control"
-* "Launch Firefox"
-* "Close Firefox"
+- "Open Safari"
+- "Launch Calculator"
+- "Close Terminal"
+- "Switch to Finder"
 
-### Multiple instances of same Application
+### Application Management
 
-In Wayland systems window control is not available and apps are closed exclusively by terminating running processes
+The skill provides comprehensive application management:
 
-In X systems, the launcher prioritizes closing windows over terminating processes if `wmctrl` is available in your system
+- **Launch**: Start applications that aren't running
+- **Switch**: Bring running applications to the foreground
+- **Close**: Gracefully quit applications using AppleScript, falling back to process termination if needed
+- **Status**: Check if applications are currently running
 
-This provides a more granular control, allowing multiple instances of applications (such as several Firefox windows) to be managed individually. Even if they share the same PID
-
-If multiple processes with different PIDs match a specific application, it will only close the most recent one by default. However, users can opt for the old behavior, which allows the option to kill all matching processes.
+The skill prioritizes graceful application closure using AppleScript's quit commands, which allows applications to save their state properly. If AppleScript fails, it falls back to process termination.
 
 ## Configuration via `settings.json`
 
-To customize the behavior of the Application Launcher skill, you can modify the following options in the `settings.json` file:
+Customize the Application Launcher skill behavior by modifying these options in `settings.json`:
 
-| Option                   | Type                   | Default Value                             | Description                                                                                                                        |
-|--------------------------|------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `aliases`                | `Dict[str, List[str]]` | `{"kcalc": ["calculator"]}`               | Defines application aliases. Use application names from the `.desktop` file as keys and a list of speech-friendly names as values. |
-| `user_commands`          | `Dict[str, str]`       | `{}`                                      | User-defined application commands. Map application names to their corresponding bash commands.                                     |
-| `thresh`                 | `float`                | `0.85`                                    | The threshold for string matching. Lower values will allow more lenient matches for application names.                             |
-| `skip_categories`        | `List[str]`            | `["Settings", "ConsoleOnly", "Building"]` | Categories in desktop files that exclude application from being considered.                                                        |
-| `skip_keywords`          | `List[str]`            | `[]`                                      | Keywords in desktop files that exclude application from being considered.                                                          |
-| `target_categories`      | `List[str]`            | `[]`                                      | Categories in desktop files required for application to be considered.                                                             |
-| `target_keywords`        | `List[str]`            | `[]`                                      | Keywords in desktop files required for application to be considered.                                                               |
-| `blacklist`              | `List[str]`            | `[]`                                      | List of applications to ignore during scanning (application names from the `.desktop` file).                                       |
-| `require_icon`           | `bool`                 | `True`                                    | If set to `True`, only include applications that have an icon defined in their `.desktop` file.                                    |
-| `require_categories`     | `bool`                 | `True`                                    | If set to `True`, only include applications that have at least one category defined in their `.desktop` file.                      |
-| `terminate_all`          | `bool`                 | `False`                                   | If `True`, will terminate all matching processes when closing applications.                                                        |
-| `shell`                  | `bool`                 | `False`                                   | If `True`, allows commands to be executed in a shell environment.                                                                  |
-| `disable_window_manager` | `bool`                 | `False`                                   | If `True`, ignores `wmctl` and exclusively uses running processes for managing apps                                                |
+| Option                   | Type                   | Default Value | Description                                                                                           |
+| ------------------------ | ---------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `aliases`                | `Dict[str, List[str]]` | `{}`          | Application aliases. Map app names to speech-friendly alternatives (e.g., `{"Calculator": ["calc"]}`) |
+| `user_commands`          | `Dict[str, str]`       | `{}`          | Custom application paths. Map app names to specific `.app` bundle paths                               |
+| `thresh`                 | `float`                | `0.85`        | Fuzzy matching threshold for application names. Lower values allow more lenient matches               |
+| `blocklist`              | `List[str]`            | `[]`          | Applications to exclude from voice control                                                            |
+| `extra_langs`            | `List[str]`            | `["en-US"]`   | Additional language codes for intent matching                                                         |
+| `disable_window_manager` | `bool`                 | `False`       | If `True`, disables AppleScript-based window management                                               |
+| `terminate_all`          | `bool`                 | `False`       | If `True`, terminates all matching processes when closing applications                                |
 
-eg.
+Example configuration:
 
 ```json
 {
   "aliases": {
-    "kcalc": ["calculator"]
+    "Calculator": ["calc", "calculator"],
+    "Safari": ["browser", "web browser"],
+    "Terminal": ["term", "console"]
   },
   "thresh": 0.85,
-  "skip_categories": ["Settings", "ConsoleOnly", "Building"],
-  "terminate_all": true
+  "blocklist": ["System Preferences"],
+  "terminate_all": false
 }
+```
+
+## Installation
+
+Install from PyPI:
+
+```bash
+pip install skill-mac-application-launcher
+```
+
+Or install from source:
+
+```bash
+git clone https://github.com/OscillateLabsLLC/skill-mac-application-launcher
+cd skill-mac-application-launcher
+pip install .
+```
+
+## Development
+
+For development, install with dev dependencies:
+
+```bash
+pip install -e .[dev]
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Run type checking:
+
+```bash
+mypy skill_mac_application_launcher/
+```
+
+Run linting:
+
+```bash
+ruff check skill_mac_application_launcher/ tests/
 ```
 
 ## Category
@@ -72,6 +114,7 @@ eg.
 
 ## Tags
 
-#desktop
-#desktop-launch
-#desktop-launcher
+#macos
+#application-launcher
+#voice-control
+#ovos
