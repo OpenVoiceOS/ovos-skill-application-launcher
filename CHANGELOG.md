@@ -1,16 +1,16 @@
 # Changelog
 
-## [0.5.14a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.14a1) (2025-06-07)
+## [0.5.15a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a1) (2025-11-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.13...0.5.14a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.14...0.5.15a1)
 
 **Merged pull requests:**
 
-- fix:workshop 6.0.0 compat [\#61](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/61) ([JarbasAl](https://github.com/JarbasAl))
+- es-es/translate [\#65](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/65) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
 
-## [V0.5.13](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.13) (2025-06-07)
+## [V0.5.14](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.14) (2025-06-08)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.13...V0.5.13)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.14...V0.5.14)
 
 
 
