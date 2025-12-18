@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.15a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a2) (2025-12-18)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a1...0.5.15a2)
+
+**Merged pull requests:**
+
+- Configure Renovate [\#67](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/67) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [0.5.15a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a1) (2025-11-17)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.14...0.5.15a1)
