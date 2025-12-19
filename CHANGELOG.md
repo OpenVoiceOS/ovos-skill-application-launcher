@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.15a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a3) (2025-12-19)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a2...0.5.15a3)
+
+**Merged pull requests:**
+
+- Update dependency python to 3.14 [\#68](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/68) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [0.5.15a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a2) (2025-12-18)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a1...0.5.15a2)
