@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.15a4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a4) (2025-12-20)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a3...0.5.15a4)
+
+**Merged pull requests:**
+
+- Update dependency ovos-workshop to v8 [\#74](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/74) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [0.5.15a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a3) (2025-12-19)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a2...0.5.15a3)
