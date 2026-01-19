@@ -1,0 +1,14 @@
+{
+  "launch.intent": [
+    "راه‌اندازی {application}",
+    "{application} باز کن",
+    "{application} اجرا کن"
+  ],
+  "close.intent": [
+    "{application} ببند",
+    "پایان دادن به {application}",
+    "کشتن {application}",
+    "خروج از {application}",
+    "ترک کردن {application}"
+  ]
+}
