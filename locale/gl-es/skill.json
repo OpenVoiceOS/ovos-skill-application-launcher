@@ -1,7 +1,7 @@
 {
   "examples": [
     "Abrir ____",
-    null,
-    null
+    "(Lanzar|Iniciar) ____",
+    "Pechar ____"
   ]
 }
