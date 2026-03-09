@@ -1,0 +1,14 @@
+{
+  "/already_running.dialog": [
+    "Je vois que {application} est deja ouverte.",
+    "{application} est deja ouverte."
+  ],
+  "/confirm_launch.dialog": [
+    "Voulez-vous ouvrir une nouvelle fenetre de l'application ?",
+    "Voulez-vous relancer l'application ?"
+  ],
+  "/confirm_switch.dialog": [
+    "Voulez-vous passer a l'application deja ouverte ?",
+    "Voulez-vous revenir a la fenetre deja ouverte ?"
+  ]
+}
