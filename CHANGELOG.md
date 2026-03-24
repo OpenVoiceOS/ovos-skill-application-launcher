@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.16a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.16a1) (2026-03-24)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a5...0.5.16a1)
+
+**Merged pull requests:**
+
+- fix: rename bare lang code locale directories [\#81](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/81) ([ovos-localize[bot]](https://github.com/apps/ovos-localize))
+- Add fr-fr locale [\#79](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/79) ([goldyfruit](https://github.com/goldyfruit))
+- Update actions/setup-python action to v6 [\#73](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/73) ([renovate[bot]](https://github.com/apps/renovate))
+- Update actions/checkout action to v6 [\#72](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/72) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [0.5.15a5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a5) (2026-01-19)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.15a4...0.5.15a5)
