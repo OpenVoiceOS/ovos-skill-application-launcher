@@ -1,4 +1,4 @@
-ferme {application}
 ferme l'application {application}
-quitte {application}
+ferme {application}
 quitte l'application {application}
+quitte {application}
