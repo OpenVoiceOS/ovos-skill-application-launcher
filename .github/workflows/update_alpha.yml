@@ -1,0 +1,41 @@
+name: Update Alpha Version
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        type: boolean
+        description: Increment alpha version
+        default: true
+
+jobs:
+  update_alpha:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Update Alpha Version
+        run: |
+          # Read current version
+          VERSION_FILE="version.py"
+          CURRENT_ALPHA=$(grep "VERSION_ALPHA = " $VERSION_FILE | sed 's/.*= //' | tr -d ' ')
+
+          # Increment alpha version
+          NEW_ALPHA=$((CURRENT_ALPHA + 1))
+
+          # Update version.py
+          sed -i "s/VERSION_ALPHA = .*/VERSION_ALPHA = $NEW_ALPHA/" $VERSION_FILE
+
+          # Commit and push
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add version.py
+          git commit -m "chore: bump alpha version to $NEW_ALPHA"
+          git push origin dev
