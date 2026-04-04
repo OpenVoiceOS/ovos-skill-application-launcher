@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.17a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a2) (2026-04-04)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a1...0.5.17a2)
+
+**Merged pull requests:**
+
+- ci: modernize GitHub workflows [\#85](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/85) ([JarbasAl](https://github.com/JarbasAl))
+- fix\(i18n\): normalize locale folders to canonical BCP-47 [\#84](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/84) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.5.17a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a1) (2026-03-24)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.16a1...0.5.17a1)
