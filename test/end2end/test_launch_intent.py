@@ -74,6 +74,11 @@ def test_launch_firefox_intent_match():
         },
     )
 
+    # NOTE: expected_messages=[utterance] is intentionally a placeholder
+    # while this test is skipped. When the launch_app monkeypatch is
+    # wired in (see module docstring), replace this with the real bus
+    # traffic the skill emits — at minimum the fallback ack and
+    # mycroft.acknowledge.
     End2EndTest(
         skill_ids=[SKILL_ID],
         source_message=utterance,

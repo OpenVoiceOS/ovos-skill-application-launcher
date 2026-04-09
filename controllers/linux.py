@@ -19,6 +19,9 @@ from .base import ApplicationController
 
 WindowMatch = Tuple[str, psutil.Process, float, str]
 
+# Cap wmctrl invocations so a wedged X server can't hang the skill.
+_WMCTRL_TIMEOUT = 5
+
 
 class LinuxApplicationController(ApplicationController):
     """Application controller backed by ``.desktop`` files and ``wmctrl``."""
@@ -51,7 +54,10 @@ class LinuxApplicationController(ApplicationController):
         self._app_cache = None
 
     def launch_app(self, app: str) -> bool:
-        cmd, score = match_one(app.title(), self.app_aliases)
+        try:
+            cmd, score = match_one(app.title(), self.app_aliases)
+        except (IndexError, ValueError):
+            return False
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
             try:
@@ -131,7 +137,7 @@ class LinuxApplicationController(ApplicationController):
     ) -> Dict[str, Union[str, List[str]]]:
         """Parse a .desktop file to extract relevant application metadata."""
         extra_langs = extra_langs or []
-        extra_langs = [standardize_lang_tag(l) for l in extra_langs]
+        extra_langs = [standardize_lang_tag(lang) for lang in extra_langs]
 
         config = configparser.ConfigParser(interpolation=None, delimiters=("=", ":"))
         config.optionxform = str  # keep case-sensitivity of keys
@@ -149,9 +155,9 @@ class LinuxApplicationController(ApplicationController):
                     v = [v for v in v.split(LIST_DELIM) if v]
 
                 if "[" in key:
-                    l = standardize_lang_tag(key.split("[")[-1].split("]")[0])
+                    lang = standardize_lang_tag(key.split("[")[-1].split("]")[0])
                     k = key.split("[")[0]
-                    key = f"{k}[{l}]"
+                    key = f"{k}[{lang}]"
 
                 data[key] = v
 
@@ -165,8 +171,8 @@ class LinuxApplicationController(ApplicationController):
             "Type",
             "Icon",
         ]
-        for l in extra_langs:
-            keys_of_interest += [f"Name[{l}]", f"GenericName[{l}]", f"Comment[{l}]"]
+        for lang in extra_langs:
+            keys_of_interest += [f"Name[{lang}]", f"GenericName[{lang}]", f"Comment[{lang}]"]
 
         return {k: v for k, v in data.items() if k in keys_of_interest}
 
@@ -221,7 +227,10 @@ class LinuxApplicationController(ApplicationController):
     # ---- process management ---------------------------------------------
 
     def match_process(self, app: str) -> Iterable[psutil.Process]:
-        cmd, _ = match_one(app.title(), self.app_aliases)
+        try:
+            cmd, _ = match_one(app.title(), self.app_aliases)
+        except (IndexError, ValueError):
+            return
         cmd = cmd.split(" ")[0].split("/")[-1]
 
         processes = sorted(
@@ -284,9 +293,12 @@ class LinuxApplicationController(ApplicationController):
 
     def switch_window(self, window_id) -> bool:
         try:
-            result = subprocess.run([self.wmctrl, "-iR", window_id])
+            result = subprocess.run([self.wmctrl, "-iR", window_id], timeout=_WMCTRL_TIMEOUT)
             if result.returncode == 0:
                 return True
+        except subprocess.TimeoutExpired:
+            LOG.error("'wmctrl -iR' timed out after %ss", _WMCTRL_TIMEOUT)
+            return False
         except Exception:
             pass
         LOG.error("'wmctrl' command failed.")
@@ -294,9 +306,12 @@ class LinuxApplicationController(ApplicationController):
 
     def close_window(self, window_id) -> bool:
         try:
-            result = subprocess.run([self.wmctrl, "-ic", window_id])
+            result = subprocess.run([self.wmctrl, "-ic", window_id], timeout=_WMCTRL_TIMEOUT)
             if result.returncode == 0:
                 return True
+        except subprocess.TimeoutExpired:
+            LOG.error("'wmctrl -ic' timed out after %ss", _WMCTRL_TIMEOUT)
+            return False
         except Exception:
             pass
         LOG.error("'wmctrl' command failed.")
@@ -306,7 +321,12 @@ class LinuxApplicationController(ApplicationController):
         """Return a list of (window_id, process, create_time, title) tuples."""
         windows: List[WindowMatch] = []
         try:
-            result = subprocess.run([self.wmctrl, "-lp"], capture_output=True, text=True)
+            result = subprocess.run(
+                [self.wmctrl, "-lp"],
+                capture_output=True,
+                text=True,
+                timeout=_WMCTRL_TIMEOUT,
+            )
             if result.returncode != 0:
                 LOG.error("wmctrl command failed.")
                 return []
@@ -321,6 +341,9 @@ class LinuxApplicationController(ApplicationController):
                     windows.append((window_id, process, process.create_time(), window_title))
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     LOG.error(f"Unable to retrieve process for PID: {pid}")
+        except subprocess.TimeoutExpired:
+            LOG.error("'wmctrl -lp' timed out after %ss", _WMCTRL_TIMEOUT)
+            return []
         except Exception as e:
             LOG.error(f"Error retrieving window-process mapping: {e}")
 

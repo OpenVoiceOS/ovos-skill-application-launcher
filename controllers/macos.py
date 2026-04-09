@@ -72,21 +72,44 @@ class MacOSApplicationController(ApplicationController):
             return self.is_cache_valid()
         return True
 
-    def launch_app(self, app: str) -> bool:
+    def _match_app(self, app: str) -> Optional[tuple]:
+        """Resolve *app* against the alias cache.
+
+        Returns ``(cmd, score)`` on success, or ``None`` if no match exists
+        even after a cache rebuild attempt. Centralises the
+        match-then-rebuild-then-rematch dance that used to be duplicated
+        across launch_app, switch_to_app, close_by_applescript and
+        match_process.
+        """
         try:
-            cmd, score = match_one(app.title(), self.app_aliases)
+            return match_one(app.title(), self.app_aliases)
         except (IndexError, ValueError):
-            if not self.is_cache_valid():
-                LOG.info(f"No match for '{app}', attempting cache rebuild...")
-                if self._ensure_cache_or_rebuild():
-                    try:
-                        cmd, score = match_one(app.title(), self.app_aliases)
-                    except (IndexError, ValueError):
-                        return False
-                else:
-                    return False
-            else:
-                return False
+            if self.is_cache_valid():
+                return None
+            LOG.info(f"No match for '{app}', attempting cache rebuild...")
+            if not self._ensure_cache_or_rebuild():
+                return None
+            try:
+                return match_one(app.title(), self.app_aliases)
+            except (IndexError, ValueError):
+                return None
+
+    @staticmethod
+    def _escape_applescript(value: str) -> str:
+        """Escape backslashes and double quotes for AppleScript string literals.
+
+        macOS app names rarely contain shell-active characters but the
+        controller also accepts user-provided app names via the ``aliases``
+        setting, so we belt-and-braces escape before interpolating into
+        ``tell application "..."``.
+        """
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
+    def launch_app(self, app: str) -> bool:
+        result = self._match_app(app)
+        if result is None:
+            return False
+        cmd, score = result
 
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
@@ -115,8 +138,9 @@ class MacOSApplicationController(ApplicationController):
             app_name = cmd
 
         if self.osascript:
+            safe_name = self._escape_applescript(app_name)
             applescript = f'''
-            tell application "{app_name}"
+            tell application "{safe_name}"
                 activate
             end tell
             '''
@@ -168,26 +192,18 @@ class MacOSApplicationController(ApplicationController):
     def switch_to_app(self, app: str) -> bool:
         if not self.osascript:
             return False
-        try:
-            cmd, score = match_one(app.title(), self.app_aliases)
-        except (IndexError, ValueError):
-            if not self.is_cache_valid():
-                if self._ensure_cache_or_rebuild():
-                    try:
-                        cmd, score = match_one(app.title(), self.app_aliases)
-                    except (IndexError, ValueError):
-                        return False
-                else:
-                    return False
-            else:
-                return False
+        result = self._match_app(app)
+        if result is None:
+            return False
+        cmd, score = result
 
         if score < self.settings.get("thresh", 0.85):
             return False
 
         app_name = os.path.basename(cmd).replace(".app", "") if cmd.endswith(".app") else cmd
+        safe_name = self._escape_applescript(app_name)
         applescript = f'''
-        tell application "{app_name}"
+        tell application "{safe_name}"
             activate
         end tell
         '''
@@ -328,19 +344,10 @@ class MacOSApplicationController(ApplicationController):
     # ---- process management ---------------------------------------------
 
     def match_process(self, app: str) -> Iterable[psutil.Process]:
-        try:
-            cmd, score = match_one(app.title(), self.app_aliases)
-        except (IndexError, ValueError):
-            if not self.is_cache_valid():
-                if self._ensure_cache_or_rebuild():
-                    try:
-                        cmd, score = match_one(app.title(), self.app_aliases)
-                    except (IndexError, ValueError):
-                        return
-                else:
-                    return
-            else:
-                return
+        result = self._match_app(app)
+        if result is None:
+            return
+        cmd, score = result
 
         if score < self.settings.get("thresh", 0.85):
             return
@@ -352,13 +359,16 @@ class MacOSApplicationController(ApplicationController):
             app_name = cmd.split(" ")[0].split("/")[-1]
             bundle_name = app_name
 
-        processes = sorted(
-            psutil.process_iter(["pid", "name", "create_time"]),
-            key=lambda proc: proc.info["create_time"],
-            reverse=True,
-        )
-        for proc in processes:
-            if proc.status() in ["zombie"]:
+        # Iterate without pre-sorting: we yield every fuzzy hit and the
+        # caller decides what to do with them. Sorting by create_time
+        # was wasteful — match_process doesn't promise any particular
+        # ordering and the close_by_process consumer doesn't depend on
+        # one either.
+        for proc in psutil.process_iter(["pid", "name"]):
+            try:
+                if proc.status() in ["zombie"]:
+                    continue
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
             score1 = fuzzy_match(app_name, proc.info["name"])
             score2 = fuzzy_match(bundle_name, proc.info["name"])
@@ -368,26 +378,18 @@ class MacOSApplicationController(ApplicationController):
     def close_by_applescript(self, app: str) -> bool:
         if not self.osascript:
             return False
-        try:
-            cmd, score = match_one(app.title(), self.app_aliases)
-        except (IndexError, ValueError):
-            if not self.is_cache_valid():
-                if self._ensure_cache_or_rebuild():
-                    try:
-                        cmd, score = match_one(app.title(), self.app_aliases)
-                    except (IndexError, ValueError):
-                        return False
-                else:
-                    return False
-            else:
-                return False
+        result = self._match_app(app)
+        if result is None:
+            return False
+        cmd, score = result
 
         if score < self.settings.get("thresh", 0.85):
             return False
 
         app_name = os.path.basename(cmd).replace(".app", "") if cmd.endswith(".app") else cmd
+        safe_name = self._escape_applescript(app_name)
         applescript = f'''
-        tell application "{app_name}"
+        tell application "{safe_name}"
             quit
         end tell
         '''

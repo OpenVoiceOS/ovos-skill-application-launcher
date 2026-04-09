@@ -161,6 +161,37 @@ def test_linux_can_switch_windows_disabled_via_setting():
     assert ctrl.can_switch_windows() is False
 
 
+def test_linux_launch_app_handles_empty_cache():
+    """match_one raises on empty/empty-result inputs; launch_app must
+    catch and return False instead of bubbling.
+    """
+    ctrl = _make_linux()
+    ctrl._app_cache = {}  # empty alias map → match_one will raise
+    assert ctrl.launch_app("anything") is False
+
+
+def test_linux_match_process_handles_empty_cache():
+    ctrl = _make_linux()
+    ctrl._app_cache = {}
+    assert list(ctrl.match_process("anything")) == []
+
+
+@patch("controllers.linux.subprocess.run")
+def test_linux_switch_window_handles_timeout(mock_run):
+    import subprocess as _sp
+    mock_run.side_effect = _sp.TimeoutExpired(cmd="wmctrl", timeout=5)
+    ctrl = _make_linux()
+    assert ctrl.switch_window("0x12345") is False
+
+
+@patch("controllers.linux.subprocess.run")
+def test_linux_get_window_process_mapping_handles_timeout(mock_run):
+    import subprocess as _sp
+    mock_run.side_effect = _sp.TimeoutExpired(cmd="wmctrl", timeout=5)
+    ctrl = _make_linux()
+    assert ctrl.get_window_process_mapping() == []
+
+
 # ---- macOS controller smoke tests ----------------------------------------
 
 
@@ -294,6 +325,56 @@ def test_macos_parse_app_bundle_extracts_metadata(tmp_path):
     assert result["bundle_id"] == "com.apple.calculator"
     assert result["version"] == "10.16"
     assert result["path"] == str(app_dir)
+
+
+def test_macos_match_app_returns_none_on_unrecoverable_miss():
+    """When the alias cache is empty and the rebuild fails, _match_app
+    returns None instead of raising.
+    """
+    ctrl = _make_macos()
+    ctrl._app_cache = {}
+    ctrl._cache_build_failed = True
+    with patch.object(ctrl, "_ensure_cache_or_rebuild", return_value=False):
+        assert ctrl._match_app("anything") is None
+
+
+def test_macos_match_app_returns_match_on_success():
+    ctrl = _make_macos()
+    ctrl._app_cache = {"Safari": "/Applications/Safari.app"}
+    ctrl._cache_build_failed = False
+    cmd, score = ctrl._match_app("safari")
+    assert cmd == "/Applications/Safari.app"
+    assert score > 0.0
+
+
+def test_macos_escape_applescript_quotes_and_backslashes():
+    e = MacOSApplicationController._escape_applescript
+    assert e('Plain') == 'Plain'
+    assert e('Has "Quotes"') == 'Has \\"Quotes\\"'
+    assert e('back\\slash') == 'back\\\\slash'
+    # Combination
+    assert e('Weird\\"Name') == 'Weird\\\\\\"Name'
+
+
+@patch("controllers.macos.subprocess.run")
+@patch("controllers.macos.subprocess.Popen")
+def test_macos_launch_escapes_app_name_in_applescript(mock_popen, mock_run):
+    """An app name containing a double quote must not break the
+    AppleScript string literal.
+    """
+    mock_run.return_value = MagicMock(returncode=0, stderr="")
+    ctrl = _make_macos()
+    # Pretend the alias resolves to a hostile name (would never happen
+    # in practice but the controller takes user-supplied aliases too).
+    ctrl._app_cache = {'Sketchy "App"': 'Sketchy "App"'}
+    ctrl.settings["thresh"] = 0.0  # ensure match
+    assert ctrl.launch_app('Sketchy "App"') is True
+    args, _ = mock_run.call_args
+    script = args[0][2]
+    # The escaped form must appear; the raw double-quote must not
+    # break the surrounding tell-application string.
+    assert 'Sketchy \\"App\\"' in script
+    mock_popen.assert_not_called()
 
 
 def test_macos_parse_app_bundle_falls_back_to_directory_name(tmp_path):
