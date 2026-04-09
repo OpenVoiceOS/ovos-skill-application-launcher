@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.17a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a3) (2026-04-09)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a2...0.5.17a3)
+
+**Merged pull requests:**
+
+- chore\(ovos-skill-application-launcher\): allow ovos-workshop\<9.0.0 [\#88](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/88) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.5.17a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a2) (2026-04-04)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a1...0.5.17a2)
