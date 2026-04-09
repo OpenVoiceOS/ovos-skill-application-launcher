@@ -90,14 +90,65 @@ class MacOSApplicationController(ApplicationController):
 
         if score >= self.settings.get("thresh", 0.85):
             LOG.info(f"Matched application: {app} (command: {cmd})")
+            return self._spawn(cmd)
+        return False
+
+    def _spawn(self, cmd: str) -> bool:
+        """Launch a resolved app, preferring AppleScript over ``open``.
+
+        When the skill runs under a launchd LaunchAgent, ``subprocess.Popen``
+        of ``open`` inherits the agent's restricted spawn context and macOS
+        often refuses with ``RBSRequestErrorDomain Code=5 / Launchd job
+        spawn failed (errno 163)``. Routing the request through
+        ``osascript`` -> ``tell application "X" to activate`` hands the
+        launch off to the user's ``loginwindow`` session, which has the
+        right entitlements to spawn GUI apps.
+
+        Falls back to ``open`` / ``open -a`` if ``osascript`` is missing
+        or the AppleScript call fails.
+        """
+        if cmd.endswith(".app"):
+            app_name = os.path.basename(cmd).replace(".app", "")
+        elif "/" in cmd:
+            app_name = os.path.basename(cmd)
+        else:
+            app_name = cmd
+
+        if self.osascript:
+            applescript = f'''
+            tell application "{app_name}"
+                activate
+            end tell
+            '''
             try:
-                if cmd.endswith(".app") or "/" in cmd:
-                    subprocess.Popen(["open", cmd])
-                else:
-                    subprocess.Popen(["open", "-a", cmd])
-                return True
+                result = subprocess.run(
+                    [self.osascript, "-e", applescript],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode == 0:
+                    return True
+                LOG.warning(
+                    "AppleScript activate failed for %s (%s); falling back to `open`",
+                    app_name,
+                    result.stderr.strip(),
+                )
             except Exception as e:
-                LOG.exception(f"Failed to launch {app}: {e}")
+                LOG.warning(
+                    "AppleScript activate raised for %s (%s); falling back to `open`",
+                    app_name,
+                    e,
+                )
+
+        try:
+            if cmd.endswith(".app") or "/" in cmd:
+                subprocess.Popen(["open", cmd])
+            else:
+                subprocess.Popen(["open", "-a", cmd])
+            return True
+        except Exception as e:
+            LOG.exception(f"Failed to launch {app_name} via `open`: {e}")
         return False
 
     def close_app(self, app: str) -> bool:

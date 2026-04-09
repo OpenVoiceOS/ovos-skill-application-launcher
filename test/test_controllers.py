@@ -174,8 +174,43 @@ def _make_macos(settings=None):
     return ctrl
 
 
+@patch("controllers.macos.subprocess.run")
 @patch("controllers.macos.subprocess.Popen")
-def test_macos_launch_app_uses_open_minus_a_for_bare_names(mock_popen):
+def test_macos_launch_app_prefers_applescript_when_osascript_present(mock_popen, mock_run):
+    """AppleScript activate is preferred over `open` to avoid the
+    launchd RBSRequestErrorDomain Code=5 spawn error when the skill
+    runs from a LaunchAgent.
+    """
+    mock_run.return_value = MagicMock(returncode=0, stderr="")
+    ctrl = _make_macos()
+    ctrl._app_cache = {"Safari": "/Applications/Safari.app"}
+    assert ctrl.launch_app("safari") is True
+    # AppleScript path was used; `open` was not invoked.
+    args, _ = mock_run.call_args
+    assert args[0][0] == "/usr/bin/osascript"
+    assert "activate" in args[0][2]
+    assert 'tell application "Safari"' in args[0][2]
+    mock_popen.assert_not_called()
+
+
+@patch("controllers.macos.subprocess.run")
+@patch("controllers.macos.subprocess.Popen")
+def test_macos_launch_app_falls_back_to_open_when_applescript_fails(mock_popen, mock_run):
+    """If osascript returns non-zero, fall back to `open` so we still
+    launch *something*.
+    """
+    mock_run.return_value = MagicMock(returncode=1, stderr="execution error")
+    ctrl = _make_macos()
+    ctrl._app_cache = {"Safari": "/Applications/Safari.app"}
+    assert ctrl.launch_app("safari") is True
+    mock_popen.assert_called_once_with(["open", "/Applications/Safari.app"])
+
+
+@patch("controllers.macos.subprocess.run")
+@patch("controllers.macos.subprocess.Popen")
+def test_macos_launch_app_open_minus_a_fallback_for_bare_name(mock_popen, mock_run):
+    """When osascript fails on a bare app name, fall back to ``open -a``."""
+    mock_run.return_value = MagicMock(returncode=1, stderr="execution error")
     ctrl = _make_macos()
     ctrl._app_cache = {"Safari": "Safari"}
     assert ctrl.launch_app("safari") is True
@@ -183,8 +218,13 @@ def test_macos_launch_app_uses_open_minus_a_for_bare_names(mock_popen):
 
 
 @patch("controllers.macos.subprocess.Popen")
-def test_macos_launch_app_uses_open_for_app_bundle_paths(mock_popen):
-    ctrl = _make_macos()
+def test_macos_launch_app_uses_open_when_osascript_unavailable(mock_popen):
+    """Without osascript, the controller falls straight through to ``open``."""
+    with patch("controllers.macos.which", return_value=None), \
+         patch.object(MacOSApplicationController, "_build_app_aliases", return_value={}):
+        ctrl = MacOSApplicationController()
+    ctrl._app_cache = {"Safari": "/Applications/Safari.app"}
+    ctrl._cache_build_failed = False
     assert ctrl.launch_app("safari") is True
     mock_popen.assert_called_once_with(["open", "/Applications/Safari.app"])
 
