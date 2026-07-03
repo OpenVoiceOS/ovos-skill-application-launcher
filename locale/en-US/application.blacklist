@@ -1,0 +1,43 @@
+# application.blacklist — values that MUST NOT fill the {application} slot
+# (OVOS-INTENT-2 §4.3 slot-value exclusion).
+#
+# The {application} slot is open-vocabulary and the verbs "open"/"close" are
+# shared with many other skills, so without this list "open {application}" and
+# "close {application}" would swallow utterances that are not about desktop
+# applications at all. Each entry names a phrase that is never an application;
+# when it is the candidate slot value the match is dropped so the intent
+# pipeline can route the utterance to its rightful skill. The concrete
+# conflicting utterance is cited beside each group.
+
+# Anaphoric pronouns / deictics — refer back to something, never name an app.
+# "open it", "close that", "open this one"
+it
+this
+that
+them
+these
+those
+
+# Home-automation openables — owned by Home Assistant / PHAL skills.
+# "open the garage door", "close the blinds", "open the gate"
+[the] door
+[the] doors
+[the] garage [door]
+[the] gate
+[the] blinds
+[the] curtains
+[the] shutters
+
+# Content skills.
+# "open the news"    -> ovos-skill-news
+# "open the camera"  -> camera skill
+# "open the weather" -> weather skill
+[the] news
+[the] camera
+[the] weather
+
+# System / power skills.
+# "shut down the computer", "close the system"
+[the] computer
+[the] system
+[the] pc

@@ -1,5 +1,5 @@
-close {application}
-exit {application}
-kill {application}
-quit {application}
-terminate {application}
+# Closing / quitting a running desktop application.
+# Shares the open-vocabulary {application} slot with launch.intent and the same
+# application.blacklist slot-value exclusion.
+(close|exit|kill|quit|terminate|shut down) {application}
+(close|exit|kill|quit|terminate) [the] (app|application|program|window) {application}

@@ -51,6 +51,11 @@ class ApplicationLauncherSkill(FallbackSkill):
         # we handle this in fallback stage to
         # allow more control over matching application names
         self.intent_matchers = {}
+        # per-language slot-value exclusion sets keyed by standardized lang tag;
+        # values here must never fill the open-vocabulary {application} slot
+        # (OVOS-INTENT-2 §4.3), keeping generic "open/close" phrasings from
+        # hijacking utterances owned by other skills
+        self.blacklists = {}
         self.register_fallback_intents()
         self.add_event(f"{self.skill_id}.async_prompt", self.handle_async_prompt)
 
@@ -62,7 +67,37 @@ class ApplicationLauncherSkill(FallbackSkill):
             return None
         best_lang = standardize_lang_tag(best_lang)
         res = self.intent_matchers[best_lang].calc_intent(utterance)
+        app = res.get("entities", {}).get("application")
+        if app and self._is_blacklisted(app, best_lang):
+            # a blacklisted value is never an application; drop it so the
+            # fallback declines and the utterance can reach its rightful skill
+            LOG.debug(f"'{app}' is blacklisted for the {{application}} slot, ignoring match")
+            res["entities"].pop("application", None)
         return res
+
+    def _is_blacklisted(self, app: str, lang: str) -> bool:
+        """Check whether a candidate {application} value is excluded by a
+        `.blacklist` slot-value exclusion (OVOS-INTENT-2 §4.3).
+
+        A blacklist phrase excludes the value when its words occur in the value
+        as a contiguous sequence of whole words (not a raw substring), so `door`
+        excludes "the door" but not "doorbell".
+        """
+        if not self.blacklists:
+            return False
+        best_lang, score = closest_match(lang, list(self.blacklists.keys()))
+        if score >= 10:
+            return False
+        best_lang = standardize_lang_tag(best_lang)
+        value = app.lower().split()
+        for phrase in self.blacklists.get(best_lang, ()):
+            words = phrase.lower().split()
+            if not words:
+                continue
+            for i in range(len(value) - len(words) + 1):
+                if value[i:i + len(words)] == words:
+                    return True
+        return False
 
     def register_fallback_intents(self) -> None:
         """Register fallback intents from locale files."""
@@ -81,6 +116,18 @@ class ApplicationLauncherSkill(FallbackSkill):
                                if not line.startswith("#") and line.strip()
                                for option in expand_template(line)]
                     self.intent_matchers[l2].add_intent(intent_name, samples)
+
+            # slot-value exclusion for the {application} slot (OVOS-INTENT-2 §4.3);
+            # base name matches the slot, so it applies to every intent above
+            blacklist = join(self.root_dir, "locale", lang, "application.blacklist")
+            if os.path.isfile(blacklist):
+                l2 = standardize_lang_tag(lang)
+                with open(blacklist) as f:
+                    self.blacklists[l2] = [option for line in f.read().split("\n")
+                                           if not line.startswith("#") and line.strip()
+                                           for option in expand_template(line)]
+                LOG.debug(f"'{self.skill_id}' - loaded '{l2}' {{application}} blacklist "
+                          f"({len(self.blacklists[l2])} phrases)")
 
     def can_answer(self, message: Message) -> bool:
         utterance = message.data["utterances"][0]
