@@ -13,5 +13,6 @@ jobs:
       python_version: '3.11'
       coverage_source: 'ovos_skill_application_launcher'
       test_path: 'test/'
+      test_extras: 'test'
       install_extras: ''
       min_coverage: 0
