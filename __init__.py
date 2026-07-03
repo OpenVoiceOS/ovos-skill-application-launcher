@@ -329,7 +329,14 @@ class ApplicationLauncherSkill(FallbackSkill):
                     v = [v for v in v.split(LIST_DELIM) if v]
 
                 if "[" in key:
-                    l = standardize_lang_tag(key.split("[")[-1].split("]")[0])
+                    raw_lang = key.split("[")[-1].split("]")[0]
+                    try:
+                        l = standardize_lang_tag(raw_lang)
+                    except ValueError:
+                        # .desktop files may carry POSIX-style locale modifiers
+                        # (e.g. "sr@latn") that are not valid BCP-47 tags; keep
+                        # the original key rather than crashing the parser
+                        l = raw_lang
                     k = key.split("[")[0]
                     key = f"{k}[{l}]"
 
