@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.17a4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a4) (2026-07-04)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a3...0.5.17a4)
+
+**Merged pull requests:**
+
+- chore: add ovoscope end2end intent-routing tests [\#90](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/90) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.5.17a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a3) (2026-04-09)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a2...0.5.17a3)
@@ -71,11 +79,15 @@
 
 ## [0.5.15a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.15a1) (2025-11-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.14...0.5.15a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.14...0.5.15a1)
 
 **Merged pull requests:**
 
 - es-es/translate [\#65](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/65) ([gitlocalize-app[bot]](https://github.com/apps/gitlocalize-app))
+
+## [V0.5.14](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.14) (2025-06-08)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.14...V0.5.14)
 
 
 
