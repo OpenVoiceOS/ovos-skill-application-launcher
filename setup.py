@@ -81,9 +81,12 @@ setup(
     author=AUTHOR,
     author_email=EMAIL,
     license=LICENSE,
-    package_dir={SKILL_PKG: ""},
+    package_dir={
+        SKILL_PKG: "",
+        f"{SKILL_PKG}.controllers": "controllers",
+    },
     package_data={SKILL_PKG: find_resource_files()},
-    packages=[SKILL_PKG],
+    packages=[SKILL_PKG, f"{SKILL_PKG}.controllers"],
     include_package_data=True,
     install_requires=get_requirements(),
     extras_require={
