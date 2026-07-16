@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a1) (2026-07-16)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a4...0.6.0a1)
+
+**Merged pull requests:**
+
+- feat\(en-US\): tighten open-vocab {application} slot with a .blacklist [\#94](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/94) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.5.17a4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.17a4) (2026-07-04)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a3...0.5.17a4)
