@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ovos-skill-application-launcher"
+dynamic = ["version"]
+description = "launch desktop applications by voice"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "JarbasAi", email = "jarbasai@mailfence.com"}
+]
+keywords = ["ovos", "skill", "plugin"]
+dependencies = [
+    "padacioso>=0.1.1",
+    "ovos-workshop>=8.0.0,<9.0.0",
+    "ovos-utils>=0.3.5",
+    "psutil"
+]
+
+[project.optional-dependencies]
+test = [
+    "ovoscope>=1.5.0,<2.0.0",
+    "pytest>=7.0.0,<9",
+    "pytest-timeout>=2.0.0",
+    "padacioso>=0.1.1"
+]
+
+[project.urls]
+Homepage = "https://github.com/OpenVoiceOS/ovos-skill-application-launcher"
+
+[project.entry-points."ovos.plugin.skill"]
+"ovos-skill-application-launcher.openvoiceos" = "ovos_skill_application_launcher:ApplicationLauncherSkill"
+
+[tool.setuptools]
+packages = ["ovos_skill_application_launcher"]
+
+[tool.setuptools.package-dir]
+ovos_skill_application_launcher = ""
+
+[tool.setuptools.dynamic]
+version = {attr = "ovos_skill_application_launcher.version.__version__"}
+
+[tool.setuptools.package-data]
+ovos_skill_application_launcher = [
+    "*.json",
+    "locale/**/*",
+    "locale/*/*.voc",
+    "locale/*/*.intent",
+    "locale/*/*.dialog",
+]

@@ -1,3 +1,6 @@
-launch {application}
-open {application}
-run {application}
+# Launching / focusing a desktop application.
+# The {application} slot is open-vocabulary; the loader drops any value listed
+# in application.blacklist so the generic "open ..." phrasings do not hijack
+# utterances that belong to other skills (see application.blacklist).
+(launch|start|open|run|fire up) {application}
+(launch|start|open|run) [the] (app|application|program) {application}
