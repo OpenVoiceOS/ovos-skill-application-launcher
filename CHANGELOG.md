@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a2) (2026-07-17)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.0a1...0.6.0a2)
+
+**Merged pull requests:**
+
+- translate\(kab-DZ\): update skill.json [\#99](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/99) ([ovos-localize[bot]](https://github.com/apps/ovos-localize))
+
 ## [0.6.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a1) (2026-07-16)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.17a4...0.6.0a1)
