@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0a4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a4) (2026-07-31)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.0a3...0.6.0a4)
+
+**Merged pull requests:**
+
+- docs: rewrite README in Simplified Technical English [\#105](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/105) ([JarbasAl](https://github.com/JarbasAl))
+- fix\(da-DK\): restore {application} placeholder name [\#104](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/104) ([andlo](https://github.com/andlo))
+
 ## [0.6.0a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a3) (2026-07-17)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.0a2...0.6.0a3)
