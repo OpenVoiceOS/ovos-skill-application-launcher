@@ -8,8 +8,8 @@ from shutil import which
 from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
 from functools import lru_cache
 import psutil
-from langcodes import closest_match
 from ovos_bus_client.message import Message
+from ovos_spec_tools import closest_lang
 from ovos_utils.bracket_expansion import expand_template
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
@@ -61,8 +61,8 @@ class ApplicationLauncherSkill(FallbackSkill):
 
     @lru_cache(10)
     def match_app(self, utterance: str, lang: str) -> Optional[Dict]:
-        best_lang, score = closest_match(lang, list(self.intent_matchers.keys()))
-        if score >= 10:
+        best_lang = closest_lang(lang, list(self.intent_matchers.keys()))
+        if best_lang is None:
             # unsupported lang
             return None
         best_lang = standardize_lang_tag(best_lang)
@@ -85,8 +85,8 @@ class ApplicationLauncherSkill(FallbackSkill):
         """
         if not self.blacklists:
             return False
-        best_lang, score = closest_match(lang, list(self.blacklists.keys()))
-        if score >= 10:
+        best_lang = closest_lang(lang, list(self.blacklists.keys()))
+        if best_lang is None:
             return False
         best_lang = standardize_lang_tag(best_lang)
         value = app.lower().split()
