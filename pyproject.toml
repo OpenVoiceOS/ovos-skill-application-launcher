@@ -16,6 +16,7 @@ dependencies = [
     "padacioso>=0.1.1",
     "ovos-workshop>=8.0.0,<9.0.0",
     "ovos-utils>=0.3.5",
+    "ovos-spec-tools>=1.6.1a1",
     "psutil"
 ]
 

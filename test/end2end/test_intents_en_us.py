@@ -24,6 +24,7 @@ process table, which is not deterministic on a CI runner, so the instance's
 launch/close side effects are neutralised while the intent-matching and
 fallback routing under test run for real.
 """
+import gc
 from typing import List
 
 import pytest
@@ -90,6 +91,26 @@ def minicroft():
     skill.launch_app = lambda app: True
     skill.close_app = lambda app: True
     yield mc
+    # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
+    # (non-reentrant) internal lock while it drops `self._events`. If
+    # dropping that reference is what frees the last owner of some
+    # bound-method listener, CPython runs that owner's __del__ synchronously,
+    # right there, still inside the `with self._lock:` block. Any such
+    # owner whose __del__ itself calls bus.remove()/remove_listener() (every
+    # ovoscope capture/test session does, as a defensive net) then tries to
+    # re-acquire the very same lock from the same thread and deadlocks
+    # forever — observed as a 30-minute CI hang on this module's teardown.
+    # Clearing the listeners ourselves first, *outside* of pyee's lock,
+    # lets any such __del__ run (and re-acquire the lock) normally; by the
+    # time mc.stop() takes the lock the dict is already empty, so it has
+    # nothing left to free and the reentrancy can't happen.
+    ee = getattr(mc.bus, "ee", None)
+    if ee is not None:
+        events = getattr(ee, "_events", None)
+        if events is not None:
+            for event in list(events.keys()):
+                events.pop(event, None)
+        gc.collect()
     mc.stop()
 
 
