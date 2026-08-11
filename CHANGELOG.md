@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.1a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.1a1) (2026-08-11)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.0a4...0.6.1a1)
+
+**Merged pull requests:**
+
+- fix: accept an intent-matcher language at the distance threshold [\#108](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/108) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.6.0a4](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.0a4) (2026-07-31)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.0a3...0.6.0a4)
