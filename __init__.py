@@ -155,8 +155,8 @@ class ApplicationLauncherSkill(FallbackSkill):
         app = message.data["app"]
         # in order for fallback to not time out we can't ask user questions in the other handler
         # so we consume the utterance first, and then proceed to ask the user to clarify action
-        launch = True
-        switch = False
+        launch = None
+        switch = None
 
         self.speak_dialog("already_running", {"application": app})
 
@@ -165,21 +165,25 @@ class ApplicationLauncherSkill(FallbackSkill):
                 if switch not in ["no", "yes"]:
                     switch = self.ask_yesno("confirm_switch")
                     LOG.debug(f"user confirmation: {switch}")
-                    if switch and switch == "yes":
+                    if switch == "yes":
                         win = self.match_window(app)
                         window_id = win[0][0] if win else None
                         self.switch_window(window_id)
                         return True
-        if not switch:
-            for i in range(5):
-                if launch not in ["no", "yes"]:
-                    launch = self.ask_yesno("confirm_launch")
-                    LOG.debug(f"user confirmation: {launch}")
-                    if launch == "no":
-                        return True  # no action
+        # note: the switch loop above always `return`s on "yes", so if we get
+        # here switch is never "yes" - ask about launching a new instance
+        for i in range(5):
+            if launch not in ["no", "yes"]:
+                launch = self.ask_yesno("confirm_launch")
+                LOG.debug(f"user confirmation: {launch}")
+                if launch == "no":
+                    return True  # no action
 
-        # launch
-        self.launch_app(app)
+        # only an explicit "yes" launches the app; "no" or an unclear/
+        # unanswered prompt (None) must never fall through to launching
+        if launch == "yes":
+            return self.launch_app(app)
+        return True  # no confirmation received, no action
 
     def launch_app(self, app: str) -> bool:
         """Launch an application by name if a match is found.
