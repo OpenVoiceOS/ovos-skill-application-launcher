@@ -1,79 +1,122 @@
-import configparser
 import os
-import shlex
-import subprocess
-from os import listdir
-from os.path import expanduser, isdir, join
-from shutil import which
-from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
 from functools import lru_cache
-import psutil
+from typing import Dict, List, Optional
+
+import langcodes
+from langcodes import closest_match, LanguageTagError
 from ovos_bus_client.message import Message
-from ovos_spec_tools import closest_lang
-from ovos_utils.bracket_expansion import expand_template
-from ovos_utils.lang import standardize_lang_tag
+from ovos_spec_tools import standardize_lang, expand as expand_template
 from ovos_utils.log import LOG
-from ovos_utils.parse import match_one, fuzzy_match
 from ovos_workshop.decorators import fallback_handler
 from ovos_workshop.skills.fallback import FallbackSkill
 from padacioso import IntentContainer
 
-WindowMatch = Tuple[str, psutil.Process, float, str]  # for easy typing
+
+def _is_valid_bcp47(tag: str) -> bool:
+    """Return True if *tag* is a BCP-47 tag that langcodes can parse.
+
+    Some Linux systems expose POSIX locale names like ``sr@latn`` that are not
+    valid BCP-47 (the correct form is ``sr-Latn``).  Passing such tags to
+    ``langcodes.closest_match`` raises ``LanguageTagError`` and crashes skill
+    loading.  We skip them at registration time instead.
+    See https://github.com/OpenVoiceOS/ovos-skill-application-launcher/issues/91
+    """
+    try:
+        langcodes.Language.get(tag)
+        return True
+    except Exception:
+        return False
+
+# PHAL API message types
+_PHAL_LAUNCH = "ovos.phal.app_launcher.launch"
+_PHAL_CLOSE = "ovos.phal.app_launcher.close"
+_PHAL_IS_RUNNING = "ovos.phal.app_launcher.is_running"
+# how long to wait for the PHAL plugin to respond (seconds)
+_PHAL_TIMEOUT = 5
 
 
 class ApplicationLauncherSkill(FallbackSkill):
-    """Skill to handle launching and closing desktop applications via voice commands."""
+    """Skill to handle launching and closing desktop applications via voice commands.
+
+    Intent handling and speech stay in this skill.  All OS-level actions
+    (subprocess launch, process enumeration, window management) are delegated to
+    the ovos-PHAL-plugin-app-launcher PHAL plugin via bus messages:
+
+    +-----------------------------------------+------------------+--------------------------------------+
+    | Message                                 | Payload          | Response payload                     |
+    +=========================================+==================+======================================+
+    | ovos.phal.app_launcher.launch           | {name}           | {name, success: true} / {name, error}|
+    | ovos.phal.app_launcher.close            | {name}           | {name, success: true} / {name, error}|
+    | ovos.phal.app_launcher.is_running       | {name}           | {name, running: bool}                |
+    +-----------------------------------------+------------------+--------------------------------------+
+
+    The skill uses ``bus.wait_for_response`` so it works across HiveMind: the
+    skill can live on an ovos-core node while the PHAL plugin runs on the target
+    device.  If the PHAL plugin does not respond within ``_PHAL_TIMEOUT`` seconds
+    the skill speaks an error dialog.
+    """
 
     def initialize(self) -> None:
-        """Initialize the skill by setting up application aliases, commands, and intent matchers."""
-        if "aliases" not in self.settings:
-            self.settings["aliases"] = {
-                # "name from .desktop file": ["speech", "friendly", "names"]
-                "kcalc": ["calculator"]
-            }
-        # these are user defined commands mapped to voice
-        if "user_commands" not in self.settings:
-            # "application name": "bash command"
-            self.settings["user_commands"] = {}
-
-        self.wmctrl = None
-        if not self.settings.get("disable_window_manager", False):
-            self.wmctrl = which("wmctrl")
-            if not self.wmctrl:
-                LOG.warning("'wmctrl' not available, will not be able to manage windows directly only processes")
-            else:
-                LOG.debug(f"'wmctrl' found: {self.wmctrl}")
-        else:
-            LOG.debug(f"window manager disabled for {self.skill_id}")
-
-        self.applist = self.get_app_aliases()
-        # this is a regex based intent parser
-        # we handle this in fallback stage to
-        # allow more control over matching application names
-        self.intent_matchers = {}
+        self.intent_matchers: Dict[str, IntentContainer] = {}
         # per-language slot-value exclusion sets keyed by standardized lang tag;
         # values here must never fill the open-vocabulary {application} slot
         # (OVOS-INTENT-2 §4.3), keeping generic "open/close" phrasings from
         # hijacking utterances owned by other skills
-        self.blacklists = {}
+        self.blacklists: Dict[str, List[str]] = {}
         self.register_fallback_intents()
         self.add_event(f"{self.skill_id}.async_prompt", self.handle_async_prompt)
 
-    @lru_cache(10)
-    def match_app(self, utterance: str, lang: str) -> Optional[Dict]:
-        best_lang = closest_lang(lang, list(self.intent_matchers.keys()))
-        if best_lang is None:
-            # unsupported lang
-            return None
-        best_lang = standardize_lang_tag(best_lang)
-        res = self.intent_matchers[best_lang].calc_intent(utterance)
-        app = res.get("entities", {}).get("application")
-        if app and self._is_blacklisted(app, best_lang):
-            # a blacklisted value is never an application; drop it so the
-            # fallback declines and the utterance can reach its rightful skill
-            LOG.debug(f"'{app}' is blacklisted for the {{application}} slot, ignoring match")
-            res["entities"].pop("application", None)
-        return res
+    # ------------------------------------------------------------------
+    # Intent matching helpers
+    # ------------------------------------------------------------------
+
+    def register_fallback_intents(self) -> None:
+        """Register fallback intents from locale files.
+
+        Invalid locale directory names (e.g. POSIX tags like ``sr@latn`` that
+        langcodes cannot parse) are skipped with a warning instead of crashing
+        skill loading.  Fixes https://github.com/OpenVoiceOS/ovos-skill-application-launcher/issues/91
+        """
+        intents = ["close", "launch"]
+        for lang_dir in os.listdir(f"{self.root_dir}/locale"):
+            l2 = standardize_lang(lang_dir)
+            if not _is_valid_bcp47(l2):
+                LOG.warning(
+                    f"[app-launcher] skipping locale dir '{lang_dir}' (normalised: '{l2}'): "
+                    f"not a valid BCP-47 tag, cannot use with langcodes.closest_match "
+                    f"(issue #91)"
+                )
+                continue
+
+            for intent_name in intents:
+                intent_path = os.path.join(self.root_dir, "locale", lang_dir, f"{intent_name}.intent")
+                if not os.path.isfile(intent_path):
+                    continue
+                if l2 not in self.intent_matchers:
+                    self.intent_matchers[l2] = IntentContainer()
+                LOG.debug(f"[app-launcher] registering fallback '{l2}' intent: '{intent_name}'")
+                with open(intent_path) as fh:
+                    samples = [
+                        option
+                        for line in fh.read().split("\n")
+                        if not line.startswith("#") and line.strip()
+                        for option in expand_template(line)
+                    ]
+                    self.intent_matchers[l2].add_intent(intent_name, samples)
+
+            # slot-value exclusion for the {application} slot (OVOS-INTENT-2 §4.3);
+            # base name matches the slot, so it applies to every intent above
+            blacklist = os.path.join(self.root_dir, "locale", lang_dir, "application.blacklist")
+            if os.path.isfile(blacklist):
+                with open(blacklist) as f:
+                    self.blacklists[l2] = [
+                        option
+                        for line in f.read().split("\n")
+                        if not line.startswith("#") and line.strip()
+                        for option in expand_template(line)
+                    ]
+                LOG.debug(f"'{self.skill_id}' - loaded '{l2}' {{application}} blacklist "
+                          f"({len(self.blacklists[l2])} phrases)")
 
     def _is_blacklisted(self, app: str, lang: str) -> bool:
         """Check whether a candidate {application} value is excluded by a
@@ -85,10 +128,13 @@ class ApplicationLauncherSkill(FallbackSkill):
         """
         if not self.blacklists:
             return False
-        best_lang = closest_lang(lang, list(self.blacklists.keys()))
-        if best_lang is None:
+        try:
+            best_lang, score = closest_match(lang, list(self.blacklists.keys()))
+        except (LanguageTagError, ValueError):
             return False
-        best_lang = standardize_lang_tag(best_lang)
+        if score > 10:
+            return False
+        best_lang = standardize_lang(best_lang)
         value = app.lower().split()
         for phrase in self.blacklists.get(best_lang, ()):
             words = phrase.lower().split()
@@ -99,433 +145,127 @@ class ApplicationLauncherSkill(FallbackSkill):
                     return True
         return False
 
-    def register_fallback_intents(self) -> None:
-        """Register fallback intents from locale files."""
-        intents = ["close", "launch"]
-        for lang in os.listdir(f"{self.root_dir}/locale"):
-            for intent_name in intents:
-                launch = join(self.root_dir, "locale", lang, f"{intent_name}.intent")
-                if not os.path.isfile(launch):
-                    continue
-                l2 = standardize_lang_tag(lang)
-                if l2 not in self.intent_matchers:
-                    self.intent_matchers[l2] = IntentContainer()
-                LOG.debug(f"'{self.skill_id}' - registering fallback '{l2}' intent: '{intent_name}'")
-                with open(launch) as f:
-                    samples = [option for line in f.read().split("\n")
-                               if not line.startswith("#") and line.strip()
-                               for option in expand_template(line)]
-                    self.intent_matchers[l2].add_intent(intent_name, samples)
-
-            # slot-value exclusion for the {application} slot (OVOS-INTENT-2 §4.3);
-            # base name matches the slot, so it applies to every intent above
-            blacklist = join(self.root_dir, "locale", lang, "application.blacklist")
-            if os.path.isfile(blacklist):
-                l2 = standardize_lang_tag(lang)
-                with open(blacklist) as f:
-                    self.blacklists[l2] = [option for line in f.read().split("\n")
-                                           if not line.startswith("#") and line.strip()
-                                           for option in expand_template(line)]
-                LOG.debug(f"'{self.skill_id}' - loaded '{l2}' {{application}} blacklist "
-                          f"({len(self.blacklists[l2])} phrases)")
+    @lru_cache(10)
+    def match_app(self, utterance: str, lang: str) -> Optional[Dict]:
+        if not self.intent_matchers:
+            return None
+        try:
+            best_lang, score = closest_match(lang, list(self.intent_matchers.keys()))
+        except (LanguageTagError, ValueError):
+            return None
+        if score > 10:
+            return None
+        best_lang = standardize_lang(best_lang)
+        res = self.intent_matchers[best_lang].calc_intent(utterance)
+        app = res.get("entities", {}).get("application")
+        if app and self._is_blacklisted(app, best_lang):
+            # a blacklisted value is never an application; drop it so the
+            # fallback declines and the utterance can reach its rightful skill
+            LOG.debug(f"'{app}' is blacklisted for the {{application}} slot, ignoring match")
+            res["entities"].pop("application", None)
+        return res
 
     def can_answer(self, message: Message) -> bool:
         utterance = message.data["utterances"][0]
-        res = self.match_app(utterance, self.lang)
-        return bool(res.get('entities', {}).get("application"))
+        res = self.match_app(utterance, self.lang) or {}
+        return bool(res.get("entities", {}).get("application"))
+
+    # ------------------------------------------------------------------
+    # Fallback handler
+    # ------------------------------------------------------------------
 
     @fallback_handler(priority=4)
     def handle_fallback(self, message) -> bool:
         """Handle fallback utterances for launching and closing applications."""
         utterance = message.data.get("utterance", "")
-        res = self.match_app(utterance, self.lang)
-        app = res.get('entities', {}).get("application")
-        if app:
-            LOG.debug(f"Application name match: {res}")
-            if res["name"] == "launch":
-                if self.is_running(app):
-                    self.bus.emit(message.forward(f"{self.skill_id}.async_prompt", {"app": app}))
-                    return True
-                return self.launch_app(app)
-            elif res["name"] == "close":
-                return self.close_app(app)
+        res = self.match_app(utterance, self.lang) or {}
+        app = res.get("entities", {}).get("application")
+        if not app:
+            return False
+
+        LOG.debug(f"[app-launcher] intent match: {res}")
+        if res["name"] == "launch":
+            running_resp = self.bus.wait_for_response(
+                message.forward(_PHAL_IS_RUNNING, {"name": app}),
+                reply_type=f"{_PHAL_IS_RUNNING}.response",
+                timeout=_PHAL_TIMEOUT,
+            )
+            if running_resp is None:
+                # the is_running probe already timed out; a launch request
+                # would hit the same unresponsive plugin and time out again,
+                # so don't make the user wait through a second timeout
+                LOG.warning("[app-launcher] PHAL plugin did not respond to is_running request")
+                self.speak_dialog("error.no.phal")
+                return True
+            if running_resp.data.get("running"):
+                self.bus.emit(message.forward(f"{self.skill_id}.async_prompt", {"app": app}))
+                return True
+            return self._launch_app(app, message)
+        elif res["name"] == "close":
+            return self._close_app(app, message)
         return False
 
-    def handle_async_prompt(self, message: Message):
-        app = message.data["app"]
-        # in order for fallback to not time out we can't ask user questions in the other handler
-        # so we consume the utterance first, and then proceed to ask the user to clarify action
-        launch = None
-        switch = None
+    def handle_async_prompt(self, message: Message) -> None:
+        """Tell the user the app is already running and ask whether to open
+        a new window of it.
 
+        The PHAL plugin contract has no "switch to window" verb, so this
+        never claims to bring an existing window to front; the only real
+        outcome of a "yes" here is launching a new instance.
+        """
+        app = message.data["app"]
         self.speak_dialog("already_running", {"application": app})
 
-        if self.wmctrl and not self.settings.get("disable_window_manager", False):
-            for i in range(5):
-                if switch not in ["no", "yes"]:
-                    switch = self.ask_yesno("confirm_switch")
-                    LOG.debug(f"user confirmation: {switch}")
-                    if switch == "yes":
-                        win = self.match_window(app)
-                        window_id = win[0][0] if win else None
-                        self.switch_window(window_id)
-                        return True
-        # note: the switch loop above always `return`s on "yes", so if we get
-        # here switch is never "yes" - ask about launching a new instance
-        for i in range(5):
-            if launch not in ["no", "yes"]:
-                launch = self.ask_yesno("confirm_launch")
-                LOG.debug(f"user confirmation: {launch}")
-                if launch == "no":
-                    return True  # no action
+        launch = None
+        for _ in range(5):
+            launch = self.ask_yesno("confirm_launch")
+            LOG.debug(f"[app-launcher] confirm_launch: {launch}")
+            if launch in ("yes", "no"):
+                break
 
         # only an explicit "yes" launches the app; "no" or an unclear/
         # unanswered prompt (None) must never fall through to launching
         if launch == "yes":
-            return self.launch_app(app)
-        return True  # no confirmation received, no action
+            self._launch_app(app, message)
 
-    def launch_app(self, app: str) -> bool:
-        """Launch an application by name if a match is found.
+    # ------------------------------------------------------------------
+    # PHAL delegation helpers
+    # ------------------------------------------------------------------
 
-        Args:
-            app: The name of the application to launch.
-
-        Returns:
-            True if the application is launched successfully, False otherwise.
-        """
-        cmd, score = match_one(app.title(), self.applist)
-        if score >= self.settings.get("thresh", 0.85):
-            LOG.info(f"Matched application: {app} (command: {cmd})")
-            try:
-                # Launch the application in a new process without blocking
-                subprocess.Popen(shlex.split(cmd), shell=self.settings.get("shell", False))
-                self.acknowledge()
-                return True
-            except Exception as e:
-                LOG.error(f"Failed to launch {app}: {e}")
-        return False
-
-    def close_app(self, app: str) -> bool:
-        if self.wmctrl and not self.settings.get("disable_window_manager", False):
-            return self.close_by_window(app) or self.close_by_process(app)
-        return self.close_by_process(app)
-
-    def is_running(self, app: str) -> bool:
-        """ check if a application is running"""
-        if self.wmctrl is not None and self.match_window(app):
-            return True
-        for p in self.match_process(app):
-            return True
-        return False
-
-    #########
-    # process management
-    def match_process(self, app: str) -> Iterable[psutil.Process]:
-        cmd, _ = match_one(app.title(), self.applist)
-        cmd = cmd.split(" ")[0].split("/")[-1]
-
-        # Retrieve the list of processes and sort by their start time (descending order)
-        processes = sorted(psutil.process_iter(['pid', 'name', 'create_time']),
-                           key=lambda proc: proc.info['create_time'], reverse=True)
-        for proc in processes:
-            if proc.status() in ["zombie"]:
-                continue
-            score = fuzzy_match(cmd, proc.info['name'])
-            if score > 0.9:
-                yield proc
-
-    def close_by_process(self, app: str) -> bool:
-        """Close the application with the given name.
-
-        Args:
-            app: The name of the application to close.
-
-        Returns:
-            True if the application was terminated successfully, False otherwise.
-        """
-        terminated = []
-        for proc in self.match_process(app):
-            LOG.debug(f"Matched '{app}' to {proc}")
-            try:
-                LOG.info(f"Terminating process: {proc.info['name']} (PID: {proc.info['pid']})")
-                proc.terminate()  # or process.kill() to forcefully kill
-                terminated.append(proc.info['pid'])
-                if not self.settings.get("terminate_all", False):
-                    break
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                LOG.error(f"Failed to terminate {proc}")
-
-        if terminated:
-            self.acknowledge()
-            LOG.debug(f"Terminated PIDs: {terminated}")
-            return True
-        return False
-
-    #########
-    # .desktop file management
-    def get_app_aliases(self) -> Dict[str, str]:
-        """Fetch application aliases based on desktop files and settings."""
-        apps = self.settings.get("user_commands") or {}
-        norm = lambda k: k.replace(".desktop", "").replace("-", " ").replace("_", " ").split(".")[-1].title()
-
-        for app in self.get_desktop_apps(
-                skip_categories=self.settings.get("skip_categories",
-                                                  ['Settings', 'ConsoleOnly', 'Building']),
-                skip_keywords=self.settings.get("skip_keywords", []),
-                target_categories=self.settings.get("target_categories", []),
-                target_keywords=self.settings.get("target_keywords", []),
-                blacklist=self.settings.get("blacklist", []),
-                extra_langs=self.native_langs,
-                require_icon=self.settings.get("require_icon", True),
-                require_categories=self.settings.get("require_categories", True)
-        ):
-            cmd = app["Exec"].split(" ")[0].split("/")[-1].split(".")[0]
-            names = [cmd]
-            for k, v in app.items():
-                if k.startswith("Name"):
-                    names.append(v)
-            names += [norm(n) for n in names]
-
-            for name in set(names):
-                if 3 <= len(name) <= 20:
-                    apps[name] = cmd
-                # speech friendly aliases
-                if name in self.settings.get("aliases", {}):
-                    for alias in self.settings["aliases"][name]:
-                        apps[alias] = cmd
-                # KDE likes to replace every C with a K
-                if name.startswith("K") and "KDE" in app.get("Categories", []):
-                    alias = "C" + name[1:]
-                    if alias not in apps:
-                        apps[alias] = cmd
-            LOG.debug(f"found app {app['Name']} with aliases: {names}")
-
-        return apps
-
-    @staticmethod
-    def parse_desktop_file(file_path: str, extra_langs: Optional[List[str]] = None) -> Dict[str, Union[str, List[str]]]:
-        """Parse a .desktop file to extract relevant application metadata.
-
-        Args:
-            file_path: Path to the .desktop file.
-            extra_langs: List of additional languages to consider.
-
-        Returns:
-            A dictionary containing the parsed application metadata.
-        """
-        extra_langs = extra_langs or []
-        extra_langs = [standardize_lang_tag(l) for l in extra_langs]
-
-        config = configparser.ConfigParser(interpolation=None, delimiters=('=', ':'))
-        config.optionxform = str  # To keep case-sensitivity of keys
-        config.read(file_path)
-
-        data = {}
-
-        LIST_KEYS = ["Categories", "Keywords", "MimeType"]
-        LIST_DELIM = ";"
-        if 'Desktop Entry' in config:
-            keys = config['Desktop Entry'].keys()
-            for key in keys:
-                v = config['Desktop Entry'].get(key)
-                if key in LIST_KEYS:
-                    v = [v for v in v.split(LIST_DELIM) if v]
-
-                if "[" in key:
-                    raw_lang = key.split("[")[-1].split("]")[0]
-                    try:
-                        l = standardize_lang_tag(raw_lang)
-                    except ValueError:
-                        # .desktop files may carry POSIX-style locale modifiers
-                        # (e.g. "sr@latn") that are not valid BCP-47 tags; keep
-                        # the original key rather than crashing the parser
-                        l = raw_lang
-                    k = key.split("[")[0]
-                    key = f"{k}[{l}]"
-
-                data[key] = v
-
-        keys_of_interest = [
-            'Name',
-            'GenericName',
-            "Categories",
-            "Comment",
-            'Keywords',
-            "Exec",
-            "Type",
-            #   'MimeType', # for future usage
-            'Icon',  # future usage in a UI
-            #   'DBusActivatable'  # for future usage instead of subprocess
-        ]
-        for l in extra_langs:
-            keys_of_interest += [f"Name[{l}]", f"GenericName[{l}]", f"Comment[{l}]"]
-
-        return {k: v for k, v in data.items() if k in keys_of_interest}
-
-    @staticmethod
-    def get_desktop_apps(
-            skip_categories: List[str],
-            skip_keywords: List[str],
-            target_categories: List[str],
-            target_keywords: List[str],
-            blacklist: List[str],
-            extra_langs: Optional[List[str]],
-            require_icon: bool,
-            require_categories: bool
-    ) -> Generator[Dict[str, Union[str, List[str]]], None, None]:
-        """Retrieve .desktop application files that match the given criteria.
-
-        Args:
-            skip_categories: Categories of applications to skip.
-            skip_keywords: Keywords to skip.
-            target_categories: Categories of applications to target.
-            target_keywords: Keywords to target.
-            blacklist: List of applications to ignore.
-            extra_langs: Additional languages to consider.
-            require_icon: Whether an application must have an icon to be included.
-            require_categories: Whether an application must have a category to be included.
-
-        Yields:
-            Dictionaries containing metadata of matching desktop applications.
-        """
-        for p in ["/usr/share/applications/", "/usr/local/share/applications/",
-                  expanduser("~/.local/share/applications/")]:
-            if not isdir(p):
-                continue
-            for f in listdir(p):
-                if not f.endswith(".desktop") or f in blacklist:
-                    continue
-                file_path = join(p, f)
-
-                app_info = ApplicationLauncherSkill.parse_desktop_file(file_path, extra_langs=extra_langs)
-
-                if not app_info:
-                    continue
-                if "Exec" not in app_info:
-                    continue
-                if app_info["Name"] in blacklist:
-                    continue
-                if app_info.get("Type") != "Application":
-                    continue
-                if "Icon" not in app_info and require_icon:
-                    continue
-                if "Categories" not in app_info and (target_categories or require_categories):
-                    continue
-                if "Keywords" not in app_info and target_keywords:
-                    continue
-
-                if skip_categories and any(c in skip_categories for c in app_info.get("Categories", [])):
-                    continue
-                if skip_keywords and any(c in skip_keywords for c in app_info.get("Keywords", [])):
-                    continue
-
-                yield app_info
-
-    #########
-    # Window management
-    def match_window(self, app: str) -> List[WindowMatch]:
-        windows = self.get_window_process_mapping()
-        candidates = []
-        best = 0
-        for win in windows:
-            score = max(fuzzy_match(win[1].name(), app),
-                        fuzzy_match(win[-1], app))  # pick best match, process name or window name
-            if score < self.settings.get("thresh", 0.85):
-                continue
-            if score > best:
-                candidates = []
-            if score >= best:
-                candidates.append(win)
-                best = score
-        return candidates
-
-    def close_by_window(self, app: str) -> bool:
-
-        candidates = self.match_window(app)
-
-        if not candidates:
+    def _launch_app(self, app: str, message: Message) -> bool:
+        """Emit a launch request to the PHAL plugin and speak the result."""
+        resp = self.bus.wait_for_response(
+            message.forward(_PHAL_LAUNCH, {"name": app}),
+            reply_type=f"{_PHAL_LAUNCH}.response",
+            timeout=_PHAL_TIMEOUT,
+        )
+        if resp is None:
+            LOG.warning("[app-launcher] PHAL plugin did not respond to launch request")
+            self.speak_dialog("error.no.phal")
             return False
-
-        for win in candidates:
-            LOG.debug(f"Closing window '{win[0]}' : {win[-1]}")
-            self.close_window(win[0])
-            if not self.settings.get("terminate_all", False):
-                break
-
-        self.acknowledge()
-        return True
-
-    def switch_window(self, window_id) -> bool:
-        try:
-            result = subprocess.run([self.wmctrl, '-iR', window_id])
-            if result.returncode == 0:
-                self.acknowledge()
-                return True
-        except Exception as e:
-            pass
-        LOG.error("'wmctrl' command failed.")
+        if resp.data.get("success"):
+            self.acknowledge()
+            return True
+        error = resp.data.get("error", "unknown error")
+        LOG.warning(f"[app-launcher] launch failed: {error}")
+        self.speak_dialog("error.launch", {"application": app})
         return False
 
-    def close_window(self, window_id) -> bool:
-        try:
-            result = subprocess.run([self.wmctrl, '-ic', window_id])
-            if result.returncode == 0:
-                return True
-        except Exception as e:
-            pass
-
-        LOG.error("'wmctrl' command failed.")
+    def _close_app(self, app: str, message: Message) -> bool:
+        """Emit a close request to the PHAL plugin and speak the result."""
+        resp = self.bus.wait_for_response(
+            message.forward(_PHAL_CLOSE, {"name": app}),
+            reply_type=f"{_PHAL_CLOSE}.response",
+            timeout=_PHAL_TIMEOUT,
+        )
+        if resp is None:
+            LOG.warning("[app-launcher] PHAL plugin did not respond to close request")
+            self.speak_dialog("error.no.phal")
+            return False
+        if resp.data.get("success"):
+            self.acknowledge()
+            return True
+        error = resp.data.get("error", "unknown error")
+        LOG.warning(f"[app-launcher] close failed: {error}")
+        self.speak_dialog("error.close", {"application": app})
         return False
-
-    def get_window_process_mapping(self) -> List[WindowMatch]:
-        """Get a mapping of window objects to process objects on Linux."""
-        windows = []
-
-        try:
-            # Get the list of windows with wmctrl
-            result = subprocess.run([self.wmctrl, '-lp'], capture_output=True, text=True)
-            # windows are returned sorted by order of creation, but we dont have that timestamp
-            # TODO - is this true or just coincidence in my tests? i don't think it is ensured
-            if result.returncode != 0:
-                LOG.error("wmctrl command failed.")
-                return []
-
-            # Process each line in the wmctrl output
-            for line in result.stdout.splitlines():
-                # wmctrl output format: 0x04400007  0  12345  <hostname>  <window_title>
-                fields = line.split()
-                window_id = fields[0]  # Window ID
-                pid = fields[2]  # Process ID (PID)
-
-                window_title = " ".join(fields[4:])  # Window title (everything after hostname)
-                try:
-                    # Get process object using the PID
-                    process = psutil.Process(int(pid))
-                    # Map window ID to the process object
-                    windows.append((window_id, process, process.create_time(), window_title))
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    LOG.error(f"Unable to retrieve process for PID: {pid}")
-
-        except Exception as e:
-            LOG.error(f"Error retrieving window-process mapping: {e}")
-
-        return windows[::-1]
-
-
-if __name__ == "__main__":
-    import time
-
-    LOG.set_level("DEBUG")
-    from ovos_utils.fakebus import FakeBus
-    from ovos_bus_client.message import Message
-
-    s = ApplicationLauncherSkill(skill_id="fake.test", bus=FakeBus())
-    s.handle_fallback(Message("", {"utterance": "open firefox", "lang": "en-US"}))
-    time.sleep(2)
-    # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
-    exit()
-    # s.handle_fallback(Message("", {"utterance": "kill firefox"}))
-    time.sleep(2)
-    s.handle_fallback(Message("", {"utterance": "launch firefox", "lang": "en-UK"}))
-    s.handle_fallback(Message("", {"utterance": "Abrir Firefox", "lang": "pt-pt"}))

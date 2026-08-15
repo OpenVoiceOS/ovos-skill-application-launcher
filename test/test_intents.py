@@ -70,17 +70,3 @@ def test_blacklist_uses_whole_word_sequences(skill):
     assert res["entities"].get("application") == "doorbell"
 
 
-def test_parse_desktop_file_tolerates_posix_locale(tmp_path):
-    # .desktop files ship POSIX-style locale modifiers (e.g. "sr@latn") that are
-    # not valid BCP-47 tags; parsing must not crash on them (OVOS-INTENT-2 §2)
-    ApplicationLauncherSkill = _load_skill_module().ApplicationLauncherSkill
-    desktop = tmp_path / "example.desktop"
-    desktop.write_text(
-        "[Desktop Entry]\n"
-        "Type=Application\n"
-        "Name=Example\n"
-        "Name[sr@latn]=Primer\n"
-        "Exec=example\n"
-    )
-    data = ApplicationLauncherSkill.parse_desktop_file(str(desktop))
-    assert data["Name"] == "Example"

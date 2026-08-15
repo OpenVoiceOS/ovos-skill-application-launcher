@@ -1,173 +1,129 @@
-"""End-to-end intent-routing coverage for ovos-skill-application-launcher.
+"""E2E intent-routing tests for ovos-skill-application-launcher.
 
-The skill does not register regular intents; it exposes a single fallback
-handler (priority 4) that matches "open/launch/close <application>" utterances
-through its own padacioso containers and then launches or closes the desktop
-application.
+Verifies that the skill calls bus.wait_for_response with the correct
+ovos.phal.app_launcher.* message types in response to voice utterances,
+and that it speaks an error when the PHAL plugin does not respond.
 
-These tests drive the real high-priority fallback pipeline with a table of
-utterances and assert only the *discriminating* bus signal for each case,
-rather than a full ordered message skeleton:
-
-* a matched utterance is consumed by the skill's fallback handler
-  (``ovos.skills.fallback.<skill_id>.response`` carries ``result: True``);
-* a blacklisted / deictic utterance is declined so the fallback returns no
-  result and the utterance is free to reach its rightful skill
-  (OVOS-INTENT-2 §4.3 slot-value exclusion).
-
-Asserting the presence/absence of that single signal keeps the tests immune to
-message-sequence drift in ovos-core (extra ``ovos.intent.matched`` /
-activation frames, reordering of the fallback ping/pong handshake, etc.).
-
-The real launch/close code paths spawn OS processes and inspect the running
-process table, which is not deterministic on a CI runner, so the instance's
-launch/close side effects are neutralised while the intent-matching and
-fallback routing under test run for real.
+Run: pytest test/end2end/ -v
 """
-import gc
-from typing import List
+import os
+import unittest
+from unittest.mock import MagicMock, patch, call
 
-import pytest
 from ovos_bus_client.message import Message
-from ovos_bus_client.session import Session
-from ovos_utils.log import LOG
+from ovos_utils.fakebus import FakeBus
 
-from ovoscope import End2EndTest, get_minicroft
+_PHAL_LAUNCH = "ovos.phal.app_launcher.launch"
+_PHAL_CLOSE = "ovos.phal.app_launcher.close"
+_PHAL_IS_RUNNING = "ovos.phal.app_launcher.is_running"
 
-SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
-LANG = "en-US"
-HANDLER = "ApplicationLauncherSkill.handle_fallback"
-FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
-
-# priority-4 handler lives in the high-priority fallback range
-FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
-
-# utterance -> intent the skill's padacioso matcher should resolve. Every verb
-# alias from launch.intent / close.intent is represented so a change to the
-# open-vocabulary phrasings is caught end-to-end.
-LAUNCH_UTTERANCES = [
-    "open firefox",
-    "launch spotify",
-    "start gimp",
-    "run blender",
-    "fire up kcalc",
-    "open the app spotify",
-]
-CLOSE_UTTERANCES = [
-    "close chrome",
-    "quit gimp",
-    "kill firefox",
-    "exit spotify",
-    "terminate blender",
-    "shut down kcalc",
-    "close the window firefox",
-]
-
-# utterances whose slot value is excluded by application.blacklist and MUST NOT
-# be consumed by the launcher fallback (OVOS-INTENT-2 §4.3). Each cites the
-# skill that rightfully owns the phrasing.
-BLACKLIST_UTTERANCES = [
-    "open it",                 # anaphoric pronoun
-    "close that",              # deictic
-    "open the door",           # home automation
-    "open the garage door",    # home automation
-    "close the blinds",        # home automation
-    "open the news",           # ovos-skill-news
-    "open the weather",        # weather skill
-    "shut down the computer",  # power / system skill
-]
+SKILL_ROOT = os.path.join(os.path.dirname(__file__), "..", "..")
 
 
-@pytest.fixture(scope="module")
-def minicroft():
-    """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
-    LOG.set_level("CRITICAL")
-    mc = get_minicroft([SKILL_ID])
-    skill = mc.plugin_skills[SKILL_ID].instance
-    # keep intent matching real; neutralise the OS-facing effects so the
-    # outcome does not depend on which applications happen to be installed
-    # or running on the runner
-    skill.is_running = lambda app: False
-    skill.launch_app = lambda app: True
-    skill.close_app = lambda app: True
-    yield mc
-    # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
-    # (non-reentrant) internal lock while it drops `self._events`. If
-    # dropping that reference is what frees the last owner of some
-    # bound-method listener, CPython runs that owner's __del__ synchronously,
-    # right there, still inside the `with self._lock:` block. Any such
-    # owner whose __del__ itself calls bus.remove()/remove_listener() (every
-    # ovoscope capture/test session does, as a defensive net) then tries to
-    # re-acquire the very same lock from the same thread and deadlocks
-    # forever — observed as a 30-minute CI hang on this module's teardown.
-    # Clearing the listeners ourselves first, *outside* of pyee's lock,
-    # lets any such __del__ run (and re-acquire the lock) normally; by the
-    # time mc.stop() takes the lock the dict is already empty, so it has
-    # nothing left to free and the reentrancy can't happen.
-    ee = getattr(mc.bus, "ee", None)
-    if ee is not None:
-        events = getattr(ee, "_events", None)
-        if events is not None:
-            for event in list(events.keys()):
-                events.pop(event, None)
-        gc.collect()
-    mc.stop()
+def _make_skill():
+    """Return an ApplicationLauncherSkill-like mock with real en-US matchers."""
+    from ovos_skill_application_launcher import ApplicationLauncherSkill
+    from padacioso import IntentContainer
+    from ovos_spec_tools import expand as expand_template
+
+    bus = FakeBus()
+    skill = MagicMock(spec=ApplicationLauncherSkill)
+    skill._launch_app = ApplicationLauncherSkill._launch_app.__get__(skill)
+    skill._close_app = ApplicationLauncherSkill._close_app.__get__(skill)
+    skill.handle_fallback = ApplicationLauncherSkill.handle_fallback.__get__(skill)
+    skill.match_app = ApplicationLauncherSkill.match_app.__wrapped__.__get__(skill)
+    skill._is_blacklisted = ApplicationLauncherSkill._is_blacklisted.__get__(skill)
+    skill.bus = bus
+    skill.lang = "en-US"
+    skill.skill_id = "ovos-skill-application-launcher.openvoiceos"
+    skill.settings = {}
+    skill.acknowledge = MagicMock()
+    skill.speak_dialog = MagicMock()
+
+    ic = IntentContainer()
+    for intent_name in ("launch", "close"):
+        intent_path = os.path.join(SKILL_ROOT, "locale", "en-US", f"{intent_name}.intent")
+        if os.path.isfile(intent_path):
+            with open(intent_path) as fh:
+                samples = [
+                    opt
+                    for line in fh.read().split("\n")
+                    if not line.startswith("#") and line.strip()
+                    for opt in expand_template(line)
+                ]
+            ic.add_intent(intent_name, samples)
+    skill.intent_matchers = {"en-US": ic}
+    skill.blacklists = {}
+    return skill, bus
 
 
-def _capture(minicroft, utterance: str) -> List[Message]:
-    """Drive *utterance* through the fallback pipeline, return the bus messages."""
-    session = Session(f"e2e-{abs(hash(utterance))}")
-    session.lang = LANG
-    session.pipeline = list(FALLBACK_PIPELINE)
+def _run_utterance(utterance, expect_action):
+    """Run a single utterance and return the list of msg_types passed to wait_for_response."""
+    skill, bus = _make_skill()
+    called_with = []
 
-    message = Message(
-        "recognizer_loop:utterance",
-        {"utterances": [utterance], "lang": LANG},
-        {"session": session.serialize()},
-    )
+    def _wait(msg, reply_type=None, timeout=5):
+        called_with.append(msg.msg_type)
+        if msg.msg_type == _PHAL_IS_RUNNING:
+            return Message(f"{_PHAL_IS_RUNNING}.response", {"running": False})
+        if msg.msg_type == _PHAL_LAUNCH:
+            return Message(f"{_PHAL_LAUNCH}.response", {"name": utterance, "success": True})
+        if msg.msg_type == _PHAL_CLOSE:
+            return Message(f"{_PHAL_CLOSE}.response", {"name": utterance, "success": True})
+        return None
 
-    test = End2EndTest(
-        minicroft=minicroft,
-        skill_ids=[],
-        eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
-        flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["speak", "ovos.utterance.speak",
-                         "mycroft.audio.play_sound"],
-        source_message=message,
-        # subset assertion only: we inspect the returned messages ourselves
-        # instead of matching a brittle full ordered skeleton
-        expected_messages=[],
-        test_message_number=False,
-        test_boot_sequence=False,
-        test_routing=False,
-        test_final_session=False,
-        verbose=False,
-    )
-    return test.execute()
+    with patch.object(bus, "wait_for_response", side_effect=_wait):
+        msg = Message("test", {"utterance": utterance, "utterances": [utterance], "lang": "en-US"})
+        skill.handle_fallback(msg)
+
+    return called_with
 
 
-def _fallback_consumed(messages: List[Message]) -> bool:
-    """True if the launcher fallback handled the utterance (result: True)."""
-    for m in messages:
-        if m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True:
-            return True
-    return False
+class TestLaunchIntentEmitsPHAL(unittest.TestCase):
+    """Launch utterances must call wait_for_response with is_running then launch."""
+
+    def test_launch_something(self):
+        types = _run_utterance("launch something", _PHAL_LAUNCH)
+        self.assertIn(_PHAL_IS_RUNNING, types)
+        self.assertIn(_PHAL_LAUNCH, types)
+
+    def test_open_something(self):
+        self.assertIn(_PHAL_LAUNCH, _run_utterance("open something", _PHAL_LAUNCH))
+
+    def test_run_something(self):
+        self.assertIn(_PHAL_LAUNCH, _run_utterance("run something", _PHAL_LAUNCH))
 
 
-@pytest.mark.parametrize("utterance", LAUNCH_UTTERANCES + CLOSE_UTTERANCES)
-def test_application_utterance_is_handled(minicroft, utterance):
-    """Every launch/close phrasing must be consumed by the launcher fallback."""
-    messages = _capture(minicroft, utterance)
-    assert _fallback_consumed(messages), (
-        f"expected {utterance!r} to be handled by the launcher fallback, "
-        f"got {[m.msg_type for m in messages]}")
+class TestCloseIntentEmitsPHAL(unittest.TestCase):
+    """Close utterances must call wait_for_response with close."""
+
+    def test_close_something(self):
+        self.assertIn(_PHAL_CLOSE, _run_utterance("close something", _PHAL_CLOSE))
+
+    def test_kill_something(self):
+        self.assertIn(_PHAL_CLOSE, _run_utterance("kill something", _PHAL_CLOSE))
+
+    def test_exit_something(self):
+        self.assertIn(_PHAL_CLOSE, _run_utterance("exit something", _PHAL_CLOSE))
+
+    def test_quit_something(self):
+        self.assertIn(_PHAL_CLOSE, _run_utterance("quit something", _PHAL_CLOSE))
+
+    def test_terminate_something(self):
+        self.assertIn(_PHAL_CLOSE, _run_utterance("terminate something", _PHAL_CLOSE))
 
 
-@pytest.mark.parametrize("utterance", BLACKLIST_UTTERANCES)
-def test_blacklisted_utterance_is_declined(minicroft, utterance):
-    """Blacklisted / deictic phrasings must fall through, not be hijacked."""
-    messages = _capture(minicroft, utterance)
-    assert not _fallback_consumed(messages), (
-        f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
-        f"its {{application}} slot value should be blacklisted "
-        f"(OVOS-INTENT-2 §4.3)")
+class TestPHALTimeoutGraceful(unittest.TestCase):
+    """When PHAL plugin is absent the skill speaks error instead of crashing."""
+
+    def test_launch_timeout_speaks_error(self):
+        skill, bus = _make_skill()
+        with patch.object(bus, "wait_for_response", return_value=None):
+            msg = Message("test", {"utterance": "open firefox", "utterances": ["open firefox"]})
+            skill.handle_fallback(msg)
+        skill.speak_dialog.assert_called()
+        self.assertEqual(skill.speak_dialog.call_args[0][0], "error.no.phal")
+
+
+if __name__ == "__main__":
+    unittest.main()
