@@ -222,7 +222,13 @@ class ApplicationLauncherSkill(FallbackSkill):
     #########
     # process management
     def match_process(self, app: str) -> Iterable[psutil.Process]:
-        cmd, _ = match_one(app.title(), self.applist)
+        cmd, score = match_one(app.title(), self.applist)
+        # match_one always returns the closest known application, however
+        # unrelated. Without the same threshold launch_app applies, "shut off
+        # the lights" resolved to Lightworks and terminated it.
+        if score < self.settings.get("thresh", 0.85):
+            LOG.debug(f"No application matches '{app}' (best: {cmd}, score {score:.2f})")
+            return
         cmd = cmd.split(" ")[0].split("/")[-1]
 
         # Retrieve the list of processes and sort by their start time (descending order)

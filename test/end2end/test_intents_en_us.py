@@ -52,6 +52,16 @@ LAUNCH_UTTERANCES = [
     "run blender",
     "fire up kcalc",
     "open the app spotify",
+    # politeness / indirect phrasings a real user actually speaks
+    "please open firefox",
+    "can you open spotify",
+    "could you launch gimp for me",
+    "i want to open blender",
+    "i need to open blender",
+    "pull up spotify",
+    "bring up the calculator",
+    "boot up gimp",
+    "go ahead and start kcalc",
 ]
 CLOSE_UTTERANCES = [
     "close chrome",
@@ -61,6 +71,14 @@ CLOSE_UTTERANCES = [
     "terminate blender",
     "shut down kcalc",
     "close the window firefox",
+    # politeness / indirect phrasings a real user actually speaks
+    "please close firefox",
+    "can you close spotify",
+    "could you quit gimp for me",
+    "shut off firefox",
+    "shut spotify down",
+    "i want to close blender",
+    "please quit spotify",
 ]
 
 # utterances whose slot value is excluded by application.blacklist and MUST NOT
@@ -75,6 +93,29 @@ BLACKLIST_UTTERANCES = [
     "open the news",           # ovos-skill-news
     "open the weather",        # weather skill
     "shut down the computer",  # power / system skill
+    # same slot-exclusions, phrased the way real users combine politeness
+    # with the excluded value, to prove the exclusion also holds once the
+    # new indirect-verb templates are in play
+    "please open the news",           # ovos-skill-news
+    "can you open the door",          # home automation
+    "shut off the computer",          # power / system skill
+    "pull up the weather",            # weather skill
+    "bring up the garage door",       # home automation
+    "i want to open the blinds",      # home automation
+    "could you close the curtains for me",  # home automation
+    "can you open it",                # anaphoric pronoun
+    "could you close that for me",    # deictic
+]
+
+# sibling-confusion negatives: overloaded verbs that other skills legitimately
+# own and that MUST NOT be hijacked, even though they share vocabulary with
+# "open"/"close" style phrasings. These verbs are intentionally absent from
+# launch.intent / close.intent.
+VERB_CONFUSION_NEGATIVES = [
+    "turn off firefox",   # smart-home "turn off <device>" phrasing
+    "turn on firefox",    # smart-home "turn on <device>" phrasing
+    "stop firefox",       # OCP/media/timer "stop" phrasing
+    "pause spotify",      # OCP media-control phrasing
 ]
 
 
@@ -88,8 +129,11 @@ def minicroft():
     # outcome does not depend on which applications happen to be installed
     # or running on the runner
     skill.is_running = lambda app: False
-    skill.launch_app = lambda app: True
-    skill.close_app = lambda app: True
+    # record what the handler asked for, so a test can check the action and
+    # the application, not only that the fallback answered True
+    skill.calls = []
+    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
+    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
     yield mc
     # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
     # (non-reentrant) internal lock while it drops `self._events`. If
@@ -154,13 +198,36 @@ def _fallback_consumed(messages: List[Message]) -> bool:
     return False
 
 
-@pytest.mark.parametrize("utterance", LAUNCH_UTTERANCES + CLOSE_UTTERANCES)
-def test_application_utterance_is_handled(minicroft, utterance):
-    """Every launch/close phrasing must be consumed by the launcher fallback."""
+# the {application} value each phrasing captures (from the skill's own matcher)
+EXPECTED_APP = {
+    "open the app spotify": "spotify",
+    "bring up the calculator": "the calculator",
+    "close the window firefox": "firefox",
+}
+_APP_WORDS = ("firefox", "spotify", "gimp", "blender", "kcalc", "chrome")
+
+
+def _expected_app(utterance: str) -> str:
+    if utterance in EXPECTED_APP:
+        return EXPECTED_APP[utterance]
+    return next(w for w in _APP_WORDS if w in utterance.split())
+
+
+@pytest.mark.parametrize(
+    "utterance,action",
+    [(u, "launch") for u in LAUNCH_UTTERANCES] + [(u, "close") for u in CLOSE_UTTERANCES])
+def test_application_utterance_is_handled(minicroft, utterance, action):
+    """Every launch/close phrasing must be consumed by the launcher fallback,
+    and must ask for the right action on the right application."""
+    skill = minicroft.plugin_skills[SKILL_ID].instance
+    skill.calls.clear()
     messages = _capture(minicroft, utterance)
     assert _fallback_consumed(messages), (
         f"expected {utterance!r} to be handled by the launcher fallback, "
         f"got {[m.msg_type for m in messages]}")
+    assert skill.calls == [(action, _expected_app(utterance))], (
+        f"{utterance!r}: expected {action}_app({_expected_app(utterance)!r}), "
+        f"the handler asked for {skill.calls}")
 
 
 @pytest.mark.parametrize("utterance", BLACKLIST_UTTERANCES)
@@ -171,3 +238,13 @@ def test_blacklisted_utterance_is_declined(minicroft, utterance):
         f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
         f"its {{application}} slot value should be blacklisted "
         f"(OVOS-INTENT-2 §4.3)")
+
+
+@pytest.mark.parametrize("utterance", VERB_CONFUSION_NEGATIVES)
+def test_confusable_verb_is_declined(minicroft, utterance):
+    """Overloaded verbs owned by other skills must never be hijacked."""
+    messages = _capture(minicroft, utterance)
+    assert not _fallback_consumed(messages), (
+        f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
+        f"this verb belongs to another skill's phrasing and must stay out of "
+        f"launch.intent / close.intent")
