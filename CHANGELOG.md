@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.7.0a1) (2026-09-07)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.4a1...0.7.0a1)
+
+**Merged pull requests:**
+
+- feat: pt-BR sv-SE locale parity [\#120](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/120) ([JarbasAl](https://github.com/JarbasAl))
+
 ## [0.6.4a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.6.4a1) (2026-08-26)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.6.3a1...0.6.4a1)
