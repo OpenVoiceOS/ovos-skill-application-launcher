@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.8.0a2) (2026-09-07)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.8.0a1...0.8.0a2)
+
+**Merged pull requests:**
+
+- Update dependency pytest to v9 [\#97](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/97) ([renovate[bot]](https://github.com/apps/renovate))
+
 ## [0.8.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.8.0a1) (2026-09-07)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.7.0a1...0.8.0a1)
