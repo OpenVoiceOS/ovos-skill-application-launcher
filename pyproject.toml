@@ -17,7 +17,7 @@ dependencies = [
     "ovos-workshop>=8.0.0,<10.0.0",
     "ovos-utils>=0.3.5",
     "ovos-spec-tools>=1.6.1a1",
-    "psutil"
+    "langcodes"
 ]
 
 [project.optional-dependencies]
@@ -25,7 +25,8 @@ test = [
     "ovoscope>=1.5.0,<2.0.0",
     "pytest>=9.1.1,<10",
     "pytest-timeout>=2.0.0",
-    "padacioso>=0.1.1"
+    "padacioso>=0.1.1",
+    "ovos-PHAL-plugin-app-launcher>=0.0.1a4"
 ]
 
 [project.urls]
