@@ -43,6 +43,12 @@ NEGATIVE_UTTERANCES = [
     ("close the blinds", "ovos-skill-homeassistant.openvoiceos"),
     ("shut down the computer", "ovos-skill-system.openvoiceos"),
     ("stop the timer", "ovos-skill-alerts.openvoiceos"),
+    # overloaded verbs owned by other skills; must stay out of launch.intent /
+    # close.intent even though they share vocabulary with "open"/"close"
+    ("turn off the lights", "ovos-skill-homeassistant.openvoiceos"),
+    ("stop the music", "ovos-ocp-audio-plugin.openvoiceos"),
+    ("pause the music", "ovos-ocp-audio-plugin.openvoiceos"),
+    ("please open the door", "ovos-skill-homeassistant.openvoiceos"),
 ]
 
 

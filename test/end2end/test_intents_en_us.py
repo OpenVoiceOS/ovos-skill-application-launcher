@@ -52,6 +52,16 @@ LAUNCH_UTTERANCES = [
     "run blender",
     "fire up kcalc",
     "open the app spotify",
+    # politeness / indirect phrasings a real user actually speaks
+    "please open firefox",
+    "can you open spotify",
+    "could you launch gimp for me",
+    "i want to open blender",
+    "i need to open blender",
+    "pull up spotify",
+    "bring up the calculator",
+    "boot up gimp",
+    "go ahead and start kcalc",
 ]
 CLOSE_UTTERANCES = [
     "close chrome",
@@ -61,6 +71,14 @@ CLOSE_UTTERANCES = [
     "terminate blender",
     "shut down kcalc",
     "close the window firefox",
+    # politeness / indirect phrasings a real user actually speaks
+    "please close firefox",
+    "can you close spotify",
+    "could you quit gimp for me",
+    "shut off firefox",
+    "shut spotify down",
+    "i want to close blender",
+    "please quit spotify",
 ]
 
 # utterances whose slot value is excluded by application.blacklist and MUST NOT
@@ -75,6 +93,29 @@ BLACKLIST_UTTERANCES = [
     "open the news",           # ovos-skill-news
     "open the weather",        # weather skill
     "shut down the computer",  # power / system skill
+    # same slot-exclusions, phrased the way real users combine politeness
+    # with the excluded value, to prove the exclusion also holds once the
+    # new indirect-verb templates are in play
+    "please open the news",           # ovos-skill-news
+    "can you open the door",          # home automation
+    "shut off the computer",          # power / system skill
+    "pull up the weather",            # weather skill
+    "bring up the garage door",       # home automation
+    "i want to open the blinds",      # home automation
+    "could you close the curtains for me",  # home automation
+    "can you open it",                # anaphoric pronoun
+    "could you close that for me",    # deictic
+]
+
+# sibling-confusion negatives: overloaded verbs that other skills legitimately
+# own and that MUST NOT be hijacked, even though they share vocabulary with
+# "open"/"close" style phrasings. These verbs are intentionally absent from
+# launch.intent / close.intent.
+VERB_CONFUSION_NEGATIVES = [
+    "turn off firefox",   # smart-home "turn off <device>" phrasing
+    "turn on firefox",    # smart-home "turn on <device>" phrasing
+    "stop firefox",       # OCP/media/timer "stop" phrasing
+    "pause spotify",      # OCP media-control phrasing
 ]
 
 
@@ -171,3 +212,13 @@ def test_blacklisted_utterance_is_declined(minicroft, utterance):
         f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
         f"its {{application}} slot value should be blacklisted "
         f"(OVOS-INTENT-2 §4.3)")
+
+
+@pytest.mark.parametrize("utterance", VERB_CONFUSION_NEGATIVES)
+def test_confusable_verb_is_declined(minicroft, utterance):
+    """Overloaded verbs owned by other skills must never be hijacked."""
+    messages = _capture(minicroft, utterance)
+    assert not _fallback_consumed(messages), (
+        f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
+        f"this verb belongs to another skill's phrasing and must stay out of "
+        f"launch.intent / close.intent")
