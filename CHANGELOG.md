@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a1) (2026-09-13)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.1a1...0.9.2a1)
+
+**Merged pull requests:**
+
+- fix\(pt-PT\): feminine article with aplicação in confirm\_launch [\#132](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/132) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.9.1a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.1a1) (2026-09-13)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.0a1...0.9.1a1)
