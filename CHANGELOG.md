@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.0a1) (2026-09-13)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.8.1a1...0.9.0a1)
+
+**Merged pull requests:**
+
+- feat\(locale\): parity for ovos-skill-application-launcher \(3 locales\) [\#128](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/128) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.8.1a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.8.1a1) (2026-09-11)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.8.0a2...0.8.1a1)
