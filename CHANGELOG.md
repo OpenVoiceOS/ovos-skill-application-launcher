@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.1a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.1a1) (2026-09-13)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.0a1...0.9.1a1)
+
+**Merged pull requests:**
+
+- fix\(locale\): it-IT and pt-PT launcher dialog wording after \#128 [\#130](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/130) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.9.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.0a1) (2026-09-13)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.8.1a1...0.9.0a1)
