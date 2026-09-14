@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.9.2a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a3) (2026-09-14)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.2a2...0.9.2a3)
+
+**Merged pull requests:**
+
+- translate\(kab\): update confirm\_switch.dialog [\#137](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/137) ([ovos-localize[bot]](https://github.com/apps/ovos-localize))
+- translate\(kab\): update confirm\_launch.dialog [\#136](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/136) ([ovos-localize[bot]](https://github.com/apps/ovos-localize))
+- translate\(kab\): update already\_running.dialog [\#135](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/135) ([ovos-localize[bot]](https://github.com/apps/ovos-localize))
+
 ## [0.9.2a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a2) (2026-09-14)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.2a1...0.9.2a2)
