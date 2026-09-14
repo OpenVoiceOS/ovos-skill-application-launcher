@@ -1,0 +1,250 @@
+"""End-to-end intent-routing coverage for ovos-skill-application-launcher.
+
+The skill does not register regular intents; it exposes a single fallback
+handler (priority 4) that matches "open/launch/close <application>" utterances
+through its own padacioso containers and then launches or closes the desktop
+application.
+
+These tests drive the real high-priority fallback pipeline with a table of
+utterances and assert only the *discriminating* bus signal for each case,
+rather than a full ordered message skeleton:
+
+* a matched utterance is consumed by the skill's fallback handler
+  (``ovos.skills.fallback.<skill_id>.response`` carries ``result: True``);
+* a blacklisted / deictic utterance is declined so the fallback returns no
+  result and the utterance is free to reach its rightful skill
+  (OVOS-INTENT-2 §4.3 slot-value exclusion).
+
+Asserting the presence/absence of that single signal keeps the tests immune to
+message-sequence drift in ovos-core (extra ``ovos.intent.matched`` /
+activation frames, reordering of the fallback ping/pong handshake, etc.).
+
+The real launch/close code paths spawn OS processes and inspect the running
+process table, which is not deterministic on a CI runner, so the instance's
+launch/close side effects are neutralised while the intent-matching and
+fallback routing under test run for real.
+"""
+import gc
+from typing import List
+
+import pytest
+from ovos_bus_client.message import Message
+from ovos_bus_client.session import Session
+from ovos_utils.log import LOG
+
+from ovoscope import End2EndTest, get_minicroft
+
+SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
+LANG = "en-US"
+HANDLER = "ApplicationLauncherSkill.handle_fallback"
+FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
+
+# priority-4 handler lives in the high-priority fallback range
+FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
+
+# utterance -> intent the skill's padacioso matcher should resolve. Every verb
+# alias from launch.intent / close.intent is represented so a change to the
+# open-vocabulary phrasings is caught end-to-end.
+LAUNCH_UTTERANCES = [
+    "open firefox",
+    "launch spotify",
+    "start gimp",
+    "run blender",
+    "fire up kcalc",
+    "open the app spotify",
+    # politeness / indirect phrasings a real user actually speaks
+    "please open firefox",
+    "can you open spotify",
+    "could you launch gimp for me",
+    "i want to open blender",
+    "i need to open blender",
+    "pull up spotify",
+    "bring up the calculator",
+    "boot up gimp",
+    "go ahead and start kcalc",
+]
+CLOSE_UTTERANCES = [
+    "close chrome",
+    "quit gimp",
+    "kill firefox",
+    "exit spotify",
+    "terminate blender",
+    "shut down kcalc",
+    "close the window firefox",
+    # politeness / indirect phrasings a real user actually speaks
+    "please close firefox",
+    "can you close spotify",
+    "could you quit gimp for me",
+    "shut off firefox",
+    "shut spotify down",
+    "i want to close blender",
+    "please quit spotify",
+]
+
+# utterances whose slot value is excluded by application.blacklist and MUST NOT
+# be consumed by the launcher fallback (OVOS-INTENT-2 §4.3). Each cites the
+# skill that rightfully owns the phrasing.
+BLACKLIST_UTTERANCES = [
+    "open it",                 # anaphoric pronoun
+    "close that",              # deictic
+    "open the door",           # home automation
+    "open the garage door",    # home automation
+    "close the blinds",        # home automation
+    "open the news",           # ovos-skill-news
+    "open the weather",        # weather skill
+    "shut down the computer",  # power / system skill
+    # same slot-exclusions, phrased the way real users combine politeness
+    # with the excluded value, to prove the exclusion also holds once the
+    # new indirect-verb templates are in play
+    "please open the news",           # ovos-skill-news
+    "can you open the door",          # home automation
+    "shut off the computer",          # power / system skill
+    "pull up the weather",            # weather skill
+    "bring up the garage door",       # home automation
+    "i want to open the blinds",      # home automation
+    "could you close the curtains for me",  # home automation
+    "can you open it",                # anaphoric pronoun
+    "could you close that for me",    # deictic
+]
+
+# sibling-confusion negatives: overloaded verbs that other skills legitimately
+# own and that MUST NOT be hijacked, even though they share vocabulary with
+# "open"/"close" style phrasings. These verbs are intentionally absent from
+# launch.intent / close.intent.
+VERB_CONFUSION_NEGATIVES = [
+    "turn off firefox",   # smart-home "turn off <device>" phrasing
+    "turn on firefox",    # smart-home "turn on <device>" phrasing
+    "stop firefox",       # OCP/media/timer "stop" phrasing
+    "pause spotify",      # OCP media-control phrasing
+]
+
+
+@pytest.fixture(scope="module")
+def minicroft():
+    """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
+    LOG.set_level("CRITICAL")
+    mc = get_minicroft([SKILL_ID])
+    skill = mc.plugin_skills[SKILL_ID].instance
+    # keep intent matching real; neutralise the OS-facing effects so the
+    # outcome does not depend on which applications happen to be installed
+    # or running on the runner
+    skill.is_running = lambda app: False
+    # record what the handler asked for, so a test can check the action and
+    # the application, not only that the fallback answered True
+    skill.calls = []
+    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
+    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    yield mc
+    # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
+    # (non-reentrant) internal lock while it drops `self._events`. If
+    # dropping that reference is what frees the last owner of some
+    # bound-method listener, CPython runs that owner's __del__ synchronously,
+    # right there, still inside the `with self._lock:` block. Any such
+    # owner whose __del__ itself calls bus.remove()/remove_listener() (every
+    # ovoscope capture/test session does, as a defensive net) then tries to
+    # re-acquire the very same lock from the same thread and deadlocks
+    # forever — observed as a 30-minute CI hang on this module's teardown.
+    # Clearing the listeners ourselves first, *outside* of pyee's lock,
+    # lets any such __del__ run (and re-acquire the lock) normally; by the
+    # time mc.stop() takes the lock the dict is already empty, so it has
+    # nothing left to free and the reentrancy can't happen.
+    ee = getattr(mc.bus, "ee", None)
+    if ee is not None:
+        events = getattr(ee, "_events", None)
+        if events is not None:
+            for event in list(events.keys()):
+                events.pop(event, None)
+        gc.collect()
+    mc.stop()
+
+
+def _capture(minicroft, utterance: str) -> List[Message]:
+    """Drive *utterance* through the fallback pipeline, return the bus messages."""
+    session = Session(f"e2e-{abs(hash(utterance))}")
+    session.lang = LANG
+    session.pipeline = list(FALLBACK_PIPELINE)
+
+    message = Message(
+        "recognizer_loop:utterance",
+        {"utterances": [utterance], "lang": LANG},
+        {"session": session.serialize()},
+    )
+
+    test = End2EndTest(
+        minicroft=minicroft,
+        skill_ids=[],
+        eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
+        flip_points=["recognizer_loop:utterance"],
+        ignore_messages=["speak", "ovos.utterance.speak",
+                         "mycroft.audio.play_sound"],
+        source_message=message,
+        # subset assertion only: we inspect the returned messages ourselves
+        # instead of matching a brittle full ordered skeleton
+        expected_messages=[],
+        test_message_number=False,
+        test_boot_sequence=False,
+        test_routing=False,
+        test_final_session=False,
+        verbose=False,
+    )
+    return test.execute()
+
+
+def _fallback_consumed(messages: List[Message]) -> bool:
+    """True if the launcher fallback handled the utterance (result: True)."""
+    for m in messages:
+        if m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True:
+            return True
+    return False
+
+
+# the {application} value each phrasing captures (from the skill's own matcher)
+EXPECTED_APP = {
+    "open the app spotify": "spotify",
+    "bring up the calculator": "the calculator",
+    "close the window firefox": "firefox",
+}
+_APP_WORDS = ("firefox", "spotify", "gimp", "blender", "kcalc", "chrome")
+
+
+def _expected_app(utterance: str) -> str:
+    if utterance in EXPECTED_APP:
+        return EXPECTED_APP[utterance]
+    return next(w for w in _APP_WORDS if w in utterance.split())
+
+
+@pytest.mark.parametrize(
+    "utterance,action",
+    [(u, "launch") for u in LAUNCH_UTTERANCES] + [(u, "close") for u in CLOSE_UTTERANCES])
+def test_application_utterance_is_handled(minicroft, utterance, action):
+    """Every launch/close phrasing must be consumed by the launcher fallback,
+    and must ask for the right action on the right application."""
+    skill = minicroft.plugin_skills[SKILL_ID].instance
+    skill.calls.clear()
+    messages = _capture(minicroft, utterance)
+    assert _fallback_consumed(messages), (
+        f"expected {utterance!r} to be handled by the launcher fallback, "
+        f"got {[m.msg_type for m in messages]}")
+    assert skill.calls == [(action, _expected_app(utterance))], (
+        f"{utterance!r}: expected {action}_app({_expected_app(utterance)!r}), "
+        f"the handler asked for {skill.calls}")
+
+
+@pytest.mark.parametrize("utterance", BLACKLIST_UTTERANCES)
+def test_blacklisted_utterance_is_declined(minicroft, utterance):
+    """Blacklisted / deictic phrasings must fall through, not be hijacked."""
+    messages = _capture(minicroft, utterance)
+    assert not _fallback_consumed(messages), (
+        f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
+        f"its {{application}} slot value should be blacklisted "
+        f"(OVOS-INTENT-2 §4.3)")
+
+
+@pytest.mark.parametrize("utterance", VERB_CONFUSION_NEGATIVES)
+def test_confusable_verb_is_declined(minicroft, utterance):
+    """Overloaded verbs owned by other skills must never be hijacked."""
+    messages = _capture(minicroft, utterance)
+    assert not _fallback_consumed(messages), (
+        f"{utterance!r} was unexpectedly hijacked by the launcher fallback; "
+        f"this verb belongs to another skill's phrasing and must stay out of "
+        f"launch.intent / close.intent")
