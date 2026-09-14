@@ -2,5 +2,9 @@
 # The {application} slot is open-vocabulary; the loader drops any value listed
 # in application.blacklist so the generic "open ..." phrasings do not hijack
 # utterances that belong to other skills (see application.blacklist).
-(launch|start|open|run|fire up) {application}
-(launch|start|open|run) [the] (app|application|program) {application}
+[please] (launch|start|open|run|fire up) {application}
+[please] (launch|start|open|run) [the] (app|application|program) {application}
+(can|could) you (launch|start|open|run|fire up) {application} [for me]
+i (want|need) to (launch|start|open|run|fire up) {application}
+(pull up|bring up|boot up) {application}
+[go ahead and] (launch|start|open|run) {application}

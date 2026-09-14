@@ -43,6 +43,12 @@ NEGATIVE_UTTERANCES = [
     ("close the blinds", "ovos-skill-homeassistant.openvoiceos"),
     ("shut down the computer", "ovos-skill-system.openvoiceos"),
     ("stop the timer", "ovos-skill-alerts.openvoiceos"),
+    # overloaded verbs owned by other skills; must stay out of launch.intent /
+    # close.intent even though they share vocabulary with "open"/"close"
+    ("turn off the lights", "ovos-skill-homeassistant.openvoiceos"),
+    ("stop the music", "ovos-ocp-audio-plugin.openvoiceos"),
+    ("pause the music", "ovos-ocp-audio-plugin.openvoiceos"),
+    ("please open the door", "ovos-skill-homeassistant.openvoiceos"),
 ]
 
 
@@ -70,8 +76,10 @@ def minicroft():
     mc = get_minicroft([SKILL_ID])
     skill = mc.plugin_skills[SKILL_ID].instance
     skill.is_running = lambda app: False
-    skill.launch_app = lambda app: True
-    skill.close_app = lambda app: True
+    # record the action and application the handler asks for
+    skill.calls = []
+    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
+    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
     yield mc
     # see test_intents_en_us.py's teardown docstring for why the listener
     # dict is drained before mc.stop() takes pyee's non-reentrant lock.
@@ -124,11 +132,19 @@ def _fallback_consumed(messages: List[Message]) -> bool:
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("row", GOLDEN_ROWS, ids=lambda r: r["utterance"])
 def test_golden_utterance(minicroft, row):
+    skill = minicroft.plugin_skills[SKILL_ID].instance
+    skill.calls.clear()
     messages = _capture(minicroft, row["utterance"])
     assert _fallback_consumed(messages), (
         f"{row['utterance']!r}: expected the launcher fallback to consume it "
         f"(intent_label={row['intent_label']!r}), got "
         f"{[m.msg_type for m in messages]!r}"
+    )
+    # every golden row names either "something" or one known application
+    app = "spotify" if "spotify" in row["utterance"].split() else "something"
+    assert skill.calls == [(row["intent_label"], app)], (
+        f"{row['utterance']!r}: expected {row['intent_label']}_app({app!r}), "
+        f"the handler asked for {skill.calls}"
     )
 
 
