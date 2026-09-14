@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.9.2a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a2) (2026-09-14)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.2a1...0.9.2a2)
+
+**Merged pull requests:**
+
+- test: expand golden-utterance e2e coverage, fix template gaps [\#127](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/127) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.9.2a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a1) (2026-09-13)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.1a1...0.9.2a1)
