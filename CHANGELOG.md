@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.10.0a1) (2026-09-17)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.2a3...0.10.0a1)
+
+**Merged pull requests:**
+
+- feat\(locale\): fill de-DE, es-ES, gl-ES, eu-ES and ca-ES gaps against en-US [\#142](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/142) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.9.2a3](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.9.2a3) (2026-09-14)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.9.2a2...0.9.2a3)
