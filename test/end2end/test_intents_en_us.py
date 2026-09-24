@@ -42,43 +42,47 @@ FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
 # priority-4 handler lives in the high-priority fallback range
 FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
 
-# utterance -> intent the skill's padacioso matcher should resolve. Every verb
-# alias from launch.intent / close.intent is represented so a change to the
-# open-vocabulary phrasings is caught end-to-end.
+# utterance -> intent the skill's padacioso matcher should resolve, paired
+# with the application name the {application} slot must resolve to. Every
+# verb alias from launch.intent / close.intent is represented so a change to
+# the open-vocabulary phrasings is caught end-to-end. The expected app name
+# is read off the utterance itself (the slot value the user actually said),
+# never off a run of the handler, so it is independent of the code under
+# test.
 LAUNCH_UTTERANCES = [
-    "open firefox",
-    "launch spotify",
-    "start gimp",
-    "run blender",
-    "fire up kcalc",
-    "open the app spotify",
+    ("open firefox", "firefox"),
+    ("launch spotify", "spotify"),
+    ("start gimp", "gimp"),
+    ("run blender", "blender"),
+    ("fire up kcalc", "kcalc"),
+    ("open the app spotify", "spotify"),
     # politeness / indirect phrasings a real user actually speaks
-    "please open firefox",
-    "can you open spotify",
-    "could you launch gimp for me",
-    "i want to open blender",
-    "i need to open blender",
-    "pull up spotify",
-    "bring up the calculator",
-    "boot up gimp",
-    "go ahead and start kcalc",
+    ("please open firefox", "firefox"),
+    ("can you open spotify", "spotify"),
+    ("could you launch gimp for me", "gimp"),
+    ("i want to open blender", "blender"),
+    ("i need to open blender", "blender"),
+    ("pull up spotify", "spotify"),
+    ("bring up the calculator", "the calculator"),
+    ("boot up gimp", "gimp"),
+    ("go ahead and start kcalc", "kcalc"),
 ]
 CLOSE_UTTERANCES = [
-    "close chrome",
-    "quit gimp",
-    "kill firefox",
-    "exit spotify",
-    "terminate blender",
-    "shut down kcalc",
-    "close the window firefox",
+    ("close chrome", "chrome"),
+    ("quit gimp", "gimp"),
+    ("kill firefox", "firefox"),
+    ("exit spotify", "spotify"),
+    ("terminate blender", "blender"),
+    ("shut down kcalc", "kcalc"),
+    ("close the window firefox", "firefox"),
     # politeness / indirect phrasings a real user actually speaks
-    "please close firefox",
-    "can you close spotify",
-    "could you quit gimp for me",
-    "shut off firefox",
-    "shut spotify down",
-    "i want to close blender",
-    "please quit spotify",
+    ("please close firefox", "firefox"),
+    ("can you close spotify", "spotify"),
+    ("could you quit gimp for me", "gimp"),
+    ("shut off firefox", "firefox"),
+    ("shut spotify down", "spotify"),
+    ("i want to close blender", "blender"),
+    ("please quit spotify", "spotify"),
 ]
 
 # utterances whose slot value is excluded by application.blacklist and MUST NOT
@@ -129,11 +133,14 @@ def minicroft():
     # outcome does not depend on which applications happen to be installed
     # or running on the runner
     skill.is_running = lambda app: False
-    # record what the handler asked for, so a test can check the action and
-    # the application, not only that the fallback answered True
-    skill.calls = []
-    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
-    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    # record the resolved {application} slot value instead of discarding it,
+    # so a test can assert WHICH app the fallback resolved to launch/close --
+    # not just that some launch/close happened -- without ever touching a
+    # real process. Cleared per-test by the calling test via .clear().
+    skill.launch_calls = []
+    skill.close_calls = []
+    skill.launch_app = lambda app: skill.launch_calls.append(app) or True
+    skill.close_app = lambda app: skill.close_calls.append(app) or True
     yield mc
     # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
     # (non-reentrant) internal lock while it drops `self._events`. If
@@ -143,7 +150,7 @@ def minicroft():
     # owner whose __del__ itself calls bus.remove()/remove_listener() (every
     # ovoscope capture/test session does, as a defensive net) then tries to
     # re-acquire the very same lock from the same thread and deadlocks
-    # forever — observed as a 30-minute CI hang on this module's teardown.
+    # forever -- observed as a 30-minute CI hang on this module's teardown.
     # Clearing the listeners ourselves first, *outside* of pyee's lock,
     # lets any such __del__ run (and re-acquire the lock) normally; by the
     # time mc.stop() takes the lock the dict is already empty, so it has
@@ -198,36 +205,45 @@ def _fallback_consumed(messages: List[Message]) -> bool:
     return False
 
 
-# the {application} value each phrasing captures (from the skill's own matcher)
-EXPECTED_APP = {
-    "open the app spotify": "spotify",
-    "bring up the calculator": "the calculator",
-    "close the window firefox": "firefox",
-}
-_APP_WORDS = ("firefox", "spotify", "gimp", "blender", "kcalc", "chrome")
-
-
-def _expected_app(utterance: str) -> str:
-    if utterance in EXPECTED_APP:
-        return EXPECTED_APP[utterance]
-    return next(w for w in _APP_WORDS if w in utterance.split())
-
-
-@pytest.mark.parametrize(
-    "utterance,action",
-    [(u, "launch") for u in LAUNCH_UTTERANCES] + [(u, "close") for u in CLOSE_UTTERANCES])
-def test_application_utterance_is_handled(minicroft, utterance, action):
-    """Every launch/close phrasing must be consumed by the launcher fallback,
-    and must ask for the right action on the right application."""
+@pytest.mark.parametrize("utterance,expected_app", LAUNCH_UTTERANCES)
+def test_launch_utterance_resolves_the_named_app(minicroft, utterance, expected_app):
+    """The fallback must not just fire -- it must resolve {application} to
+    the app the user actually named, and call ``launch_app`` with it. A
+    "was it consumed" check alone is satisfied by a handler that resolves
+    the wrong app, or ignores the slot and launches whatever it likes;
+    ``launch_app`` is stubbed to never touch a real process, so this
+    inspects the call it WOULD have made instead of a process appearing.
+    """
     skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.calls.clear()
+    skill.launch_calls.clear()
+    skill.close_calls.clear()
     messages = _capture(minicroft, utterance)
     assert _fallback_consumed(messages), (
         f"expected {utterance!r} to be handled by the launcher fallback, "
         f"got {[m.msg_type for m in messages]}")
-    assert skill.calls == [(action, _expected_app(utterance))], (
-        f"{utterance!r}: expected {action}_app({_expected_app(utterance)!r}), "
-        f"the handler asked for {skill.calls}")
+    assert skill.launch_calls == [expected_app], (
+        f"{utterance!r}: expected launch_app({expected_app!r}), "
+        f"got calls {skill.launch_calls!r}")
+    assert skill.close_calls == [], (
+        f"{utterance!r}: unexpectedly called close_app{skill.close_calls!r}")
+
+
+@pytest.mark.parametrize("utterance,expected_app", CLOSE_UTTERANCES)
+def test_close_utterance_resolves_the_named_app(minicroft, utterance, expected_app):
+    """Mirror of the launch case: assert ``close_app`` is called with the app
+    the user actually named, not merely that the fallback fired."""
+    skill = minicroft.plugin_skills[SKILL_ID].instance
+    skill.launch_calls.clear()
+    skill.close_calls.clear()
+    messages = _capture(minicroft, utterance)
+    assert _fallback_consumed(messages), (
+        f"expected {utterance!r} to be handled by the launcher fallback, "
+        f"got {[m.msg_type for m in messages]}")
+    assert skill.close_calls == [expected_app], (
+        f"{utterance!r}: expected close_app({expected_app!r}), "
+        f"got calls {skill.close_calls!r}")
+    assert skill.launch_calls == [], (
+        f"{utterance!r}: unexpectedly called launch_app{skill.launch_calls!r}")
 
 
 @pytest.mark.parametrize("utterance", BLACKLIST_UTTERANCES)
