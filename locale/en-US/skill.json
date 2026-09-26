@@ -1,9 +1,13 @@
 {
+  "skill_id": "ovos-skill-application-launcher.openvoiceos",
   "name": "Application Launcher",
   "description": "Open and close applications on the Linux desktop by voice. This skill works only on Linux desktop environments.",
   "examples": [
     "Open ____",
     "Launch ____",
     "Close ____"
+  ],
+  "tags": [
+    "system"
   ]
 }
