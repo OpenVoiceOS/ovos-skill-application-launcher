@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.4a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.13.4a1) (2026-09-26)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.13.3a1...0.13.4a1)
+
+**Merged pull requests:**
+
+- fix\(locale\): the store name and description in en-US [\#156](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/156) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.13.3a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.13.3a1) (2026-09-24)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.13.2a2...0.13.3a1)
@@ -387,20 +395,20 @@
 
 ## [0.5.11a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11a1) (2025-01-25)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.10...0.5.11a1)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.10...0.5.11a1)
 
 **Merged pull requests:**
 
 - Release 0.5.11a1 [\#54](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/54) ([github-actions[bot]](https://github.com/apps/github-actions))
 - fix automations [\#53](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/53) ([JarbasAl](https://github.com/JarbasAl))
 
-## [0.5.10](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.10) (2024-12-02)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.10...0.5.10)
-
 ## [V0.5.10](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.10) (2024-12-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.10a1...V0.5.10)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.10...V0.5.10)
+
+## [0.5.10](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.10) (2024-12-02)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.10a1...0.5.10)
 
 **Merged pull requests:**
 
@@ -408,23 +416,15 @@
 
 ## [0.5.10a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.10a1) (2024-12-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9...0.5.10a1)
-
-**Merged pull requests:**
-
-- import galician and basque translations [\#51](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/51) ([JarbasAl](https://github.com/JarbasAl))
-
-## [0.5.9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.9) (2024-12-02)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.9...0.5.9)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.9...0.5.10a1)
 
 ## [V0.5.9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.9) (2024-12-02)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9a1...V0.5.9)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9...V0.5.9)
 
-**Merged pull requests:**
+## [0.5.9](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.9) (2024-12-02)
 
-- Release 0.5.9a1 [\#50](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/50) ([github-actions[bot]](https://github.com/apps/github-actions))
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.9a1...0.5.9)
 
 ## [0.5.9a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.9a1) (2024-12-02)
 
@@ -440,15 +440,15 @@
 
 ## [0.5.8a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.8a1) (2024-11-30)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.7...0.5.8a1)
-
-## [V0.5.7](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.7) (2024-11-25)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7...V0.5.7)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7...0.5.8a1)
 
 ## [0.5.7](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7) (2024-11-25)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7a2...0.5.7)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.7...0.5.7)
+
+## [V0.5.7](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.7) (2024-11-25)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.7a2...V0.5.7)
 
 ## [0.5.7a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a2) (2024-11-25)
 
@@ -456,27 +456,27 @@
 
 ## [0.5.7a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.7a1) (2024-11-23)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.6...0.5.7a1)
-
-## [V0.5.6](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.6) (2024-11-19)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.6...V0.5.6)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.6...0.5.7a1)
 
 ## [0.5.6](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.6) (2024-11-19)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.6a1...0.5.6)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.6...0.5.6)
+
+## [V0.5.6](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.6) (2024-11-19)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.6a1...V0.5.6)
 
 ## [0.5.6a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.6a1) (2024-11-19)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.5...0.5.6a1)
-
-## [0.5.5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.5) (2024-11-17)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.5...0.5.5)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.5...0.5.6a1)
 
 ## [V0.5.5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.5) (2024-11-17)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.5a1...V0.5.5)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.5...V0.5.5)
+
+## [0.5.5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.5) (2024-11-17)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.5a1...0.5.5)
 
 ## [0.5.5a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.5a1) (2024-11-17)
 
