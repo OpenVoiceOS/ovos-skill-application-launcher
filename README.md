@@ -1,15 +1,18 @@
 # <img src='https://rawgithub.com/FortAwesome/Font-Awesome/master/svgs/solid/spinner.svg' card_color='#22a7f0' width='50' height='50' style='vertical-align:bottom'/> Application Launcher
 
-Application Launcher
+An OVOS skill that launches and closes applications on the Linux desktop by voice.
 
-> **NOTE**: this skill only works on Linux desktop environments!
+> **NOTE**: This skill works only on Linux desktop environments.
+
+## Install
+
+```bash
+pip install ovos-skill-application-launcher
+```
 
 ## About
 
-Launch applications on the Linux desktop
-
-The standard directories will be scanned for [.desktop files](https://wiki.archlinux.org/title/desktop_entries),
-application names and execution commands will be parsed from there
+The skill scans the standard directories for [.desktop files](https://wiki.archlinux.org/title/desktop_entries). It reads application names and execution commands from these files.
 
 Scanned folders:
 
@@ -23,15 +26,15 @@ Scanned folders:
 * "Launch Firefox"
 * "Close Firefox"
 
-### Multiple instances of same Application
+### Multiple instances of the same application
 
-In Wayland systems window control is not available and apps are closed exclusively by terminating running processes
+On Wayland systems, window control is not available. The skill closes apps only by ending running processes.
 
-In X systems, the launcher prioritizes closing windows over terminating processes if `wmctrl` is available in your system
+On X systems, the launcher closes windows before ending processes, if `wmctrl` is on your system.
 
-This provides a more granular control, allowing multiple instances of applications (such as several Firefox windows) to be managed individually. Even if they share the same PID
+This gives more granular control. You can manage multiple instances of an application, such as several Firefox windows, individually, even if they share the same PID.
 
-If multiple processes with different PIDs match a specific application, it will only close the most recent one by default. However, users can opt for the old behavior, which allows the option to kill all matching processes.
+If several processes with different PIDs match an application, the skill closes only the most recent one by default. You can turn on the old behavior, which ends all matching processes instead.
 
 ## Configuration via `settings.json`
 
@@ -75,3 +78,7 @@ eg.
 #desktop
 #desktop-launch
 #desktop-launcher
+
+## License
+
+Apache-2.0
