@@ -1,0 +1,23 @@
+# Launching / focusing a desktop application.
+# The {application} slot is open-vocabulary; the loader drops any value listed
+# in application.blacklist so the generic "open ..." phrasings do not hijack
+# utterances that belong to other skills (see application.blacklist).
+uruchamianie {application}
+rozpocząć {application}
+Otwórz {application}
+uruchomić {application}
+Aplikacja do uruchomienia {application}
+rozpocząć aplikację {application}
+otwórz aplikację {application}
+uruchomić aplikację {application}
+Możesz wystartować {application}
+Możesz wystartować? {application}
+możesz rozpocząć {application}
+Mógłbyś zacząć {application}
+Chcę wystartować {application}
+Muszę wystrzelić. {application}
+/Chcę zacząć. {application}
+Muszę zacząć {application}
+Powstrzymaj na górę {application}
+wskazówki {application}
+rozpętować {application}
