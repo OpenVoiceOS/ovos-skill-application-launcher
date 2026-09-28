@@ -1,0 +1,22 @@
+# Launching / focusing a desktop application.
+# The {application} slot is open-vocabulary; the loader drops any value listed
+# in application.blacklist so the generic "open ..." phrasings do not hijack
+# utterances that belong to other skills (see application.blacklist).
+запуск {application}
+начало {application}
+открытая {application}
+Бег {application}
+приложение для запуска {application}
+Приложение для запуска {application}
+Открытое приложение {application}
+прокатное приложение {application}
+Вы можете запустить {application}
+Вы не могли бы запустить {application}
+Можешь начать? {application}
+Я хочу запустить {application}
+Мне нужно запустить {application}
+Я хочу начать. {application}
+Мне нужно начать. {application}
+подъезжай. {application}
+Поднять вопрос {application}
+Поднять бонус. {application}
