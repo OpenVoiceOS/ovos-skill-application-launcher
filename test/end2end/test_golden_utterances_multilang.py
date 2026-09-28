@@ -42,10 +42,9 @@ FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
 
 END2END_DIR = Path(__file__).parent
 
-LANGS = [
-    "en-US", "ca-ES", "da-DK", "de-DE", "es-ES", "eu-ES", "fa-IR", "fr-FR",
-    "gl-ES", "it-IT", "kab", "nl-NL", "oc-FR", "pt-BR", "pt-PT", "sv-SE",
-]
+LANGS = sorted(p.stem.split("golden_utterances_", 1)[1]
+               for p in END2END_DIR.glob("golden_utterances_*.jsonl"))
+assert LANGS, "no golden_utterances_<lang>.jsonl files found"
 
 
 def _load_rows(lang):
@@ -60,6 +59,7 @@ def _load_rows(lang):
             if row.get("needs_manual"):
                 continue
             rows.append(row)
+    assert rows, f"{lang}: no golden rows"
     return rows
 
 
