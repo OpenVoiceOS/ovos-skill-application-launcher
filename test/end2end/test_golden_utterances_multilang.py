@@ -4,8 +4,9 @@ ovos-skill-application-launcher.
 test_golden_utterances.py only exercises en-US; every other locale under
 locale/ ships real launch.intent / close.intent templates (padacioso
 IntentContainer, see __init__.py register_fallback_intents()) that were
-completely untested end-to-end. This suite covers every locale that ships
-both a launch.intent and close.intent file.
+completely untested end-to-end. This suite runs every row of every
+golden_utterances_<lang>.jsonl file, including the machine-generated rows
+marked needs_manual, so each shipped locale is exercised.
 
 The skill is a FallbackSkill: it exposes no ovos.intent.matched event, only
 a high-priority fallback handler matched by its own padacioso containers
@@ -42,10 +43,12 @@ FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
 
 END2END_DIR = Path(__file__).parent
 
-LANGS = [
-    "en-US", "ca-ES", "da-DK", "de-DE", "es-ES", "eu-ES", "fa-IR", "fr-FR",
-    "gl-ES", "it-IT", "kab", "nl-NL", "oc-FR", "pt-BR", "pt-PT", "sv-SE",
-]
+LANGS = sorted(p.stem.split("golden_utterances_", 1)[1]
+               for p in END2END_DIR.glob("golden_utterances_*.jsonl"))
+assert LANGS, "no golden_utterances_<lang>.jsonl files found"
+
+# application names the golden rows put in the {application} slot
+KNOWN_APPS = ("spotify", "firefox")
 
 
 def _load_rows(lang):
@@ -56,10 +59,8 @@ def _load_rows(lang):
             line = line.strip()
             if not line:
                 continue
-            row = json.loads(line)
-            if row.get("needs_manual"):
-                continue
-            rows.append(row)
+            rows.append(json.loads(line))
+    assert rows, f"{lang}: no golden rows"
     return rows
 
 
@@ -156,8 +157,20 @@ def test_golden_utterance_multilang(minicroft, row):
         f"consume it (intent_label={row['intent_label']!r}), got "
         f"{[m.msg_type for m in messages]!r}"
     )
-    app = row.get("app") or ("spotify" if "spotify" in row["utterance"].split() else "something")
+    words = row["utterance"].split()
+    app = row.get("app") or next((a for a in KNOWN_APPS if a in words), "something")
     assert skill.calls == [(row["intent_label"], app)], (
         f"[{row['lang']}] {row['utterance']!r}: expected {row['intent_label']}_app({app!r}), "
         f"the handler asked for {skill.calls}"
+    )
+
+
+def test_every_shipping_locale_has_a_golden_file():
+    golden = {p.stem.split("_", 2)[2]
+              for p in END2END_DIR.glob("golden_utterances_*.jsonl")}
+    locale_root = END2END_DIR.parent.parent / "locale"
+    shipping = {d.name for d in locale_root.iterdir()
+                if d.is_dir() and any(d.rglob("*.intent"))}
+    assert golden == shipping, (
+        f"golden files {sorted(golden ^ shipping)} differ from shipping locales"
     )
