@@ -20,6 +20,11 @@ from padacioso import IntentContainer
 
 WindowMatch = Tuple[str, psutil.Process, float, str]  # for easy typing
 
+# key `match_app` sets on its result when it dropped a blacklisted
+# {application} value, so a caller can tell an excluded value apart from
+# a transcript that simply did not match
+BLACKLISTED = "blacklisted_application"
+
 
 class ApplicationLauncherSkill(FallbackSkill):
     """Skill to handle launching and closing desktop applications via voice commands."""
@@ -73,6 +78,10 @@ class ApplicationLauncherSkill(FallbackSkill):
             # fallback declines and the utterance can reach its rightful skill
             LOG.debug(f"'{app}' is blacklisted for the {{application}} slot, ignoring match")
             res["entities"].pop("application", None)
+            # a dropped value and no match at all are both an absent
+            # entities.application, and the caller must tell them apart: a
+            # dropped value is a positive reason to decline the whole round
+            res[BLACKLISTED] = app
         return res
 
     def _is_blacklisted(self, app: str, lang: str) -> bool:
@@ -131,18 +140,51 @@ class ApplicationLauncherSkill(FallbackSkill):
                 LOG.debug(f"'{self.skill_id}' - loaded '{l2}' {{application}} blacklist "
                           f"({len(self.blacklists[l2])} phrases)")
 
+    def _match_utterances(self, message: Message) -> Optional[Dict]:
+        """The first transcript in the message that names an application, or
+        None if no transcript does or any of them names an excluded value.
+
+        The fallback pipeline hands over the whole n-best list in
+        ``message.data["utterances"]``. Its ``utterance`` key holds the first
+        entry of that list, so both methods read one transcript before, and the
+        transcripts are not interchangeable: a Farsi launch phrase is written
+        with a zero-width non-joiner inside the verb, and the container matches
+        that form alone. Reading one entry drops a match the skill owns, so
+        every entry is read.
+
+        The entries are transcriptions of ONE utterance, so the
+        `application.blacklist` slot-value exclusion (OVOS-INTENT-2 §4.3) is
+        evidence about that utterance and not about the entry that carried it.
+        A hit on any entry declines the whole round; otherwise reading every
+        entry would make each gap in a blacklist N times easier to hit, and
+        "open the blinds" would be answered here because "open the blind"
+        transcribed beside it.
+
+        The first clean match wins, so the order of ``utterances`` is trusted
+        to rank the transcripts; the container's ``conf`` is not read.
+        """
+        match = None
+        for utterance in message.data.get("utterances") or []:
+            res = self.match_app(utterance, self.lang)
+            if not res:
+                continue
+            if res.get(BLACKLISTED):
+                LOG.debug(f"'{res[BLACKLISTED]}' is blacklisted in transcript "
+                          f"'{utterance}', declining the whole n-best list")
+                return None
+            if match is None and res.get("entities", {}).get("application"):
+                match = res
+        return match
+
     def can_answer(self, message: Message) -> bool:
-        utterance = message.data["utterances"][0]
-        res = self.match_app(utterance, self.lang)
-        return bool(res.get('entities', {}).get("application"))
+        return self._match_utterances(message) is not None
 
     @fallback_handler(priority=4)
     def handle_fallback(self, message) -> bool:
         """Handle fallback utterances for launching and closing applications."""
-        utterance = message.data.get("utterance", "")
-        res = self.match_app(utterance, self.lang)
-        app = res.get('entities', {}).get("application")
-        if app:
+        res = self._match_utterances(message)
+        if res:
+            app = res["entities"]["application"]
             LOG.debug(f"Application name match: {res}")
             if res["name"] == "launch":
                 if self.is_running(app):
