@@ -115,6 +115,8 @@ class ApplicationLauncherSkill(FallbackSkill):
                     samples = [option for line in f.read().split("\n")
                                if not line.startswith("#") and line.strip()
                                for option in expand_template(line)]
+                    # the utterance normalizer turns a zero width non-joiner into a space
+                    samples += [s.replace("\u200c", " ") for s in samples if "\u200c" in s]
                     self.intent_matchers[l2].add_intent(intent_name, samples)
 
             # slot-value exclusion for the {application} slot (OVOS-INTENT-2 §4.3);
