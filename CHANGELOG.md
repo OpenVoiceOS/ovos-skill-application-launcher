@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.6a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.13.6a1) (2026-10-09)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.13.5a5...0.13.6a1)
+
+**Merged pull requests:**
+
+- fix: read every transcript in the fallback and apply the blacklist to the whole list [\#168](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/pull/168) ([openvoiceos-bot](https://github.com/openvoiceos-bot))
+
 ## [0.13.5a5](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.13.5a5) (2026-10-08)
 
 [Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.13.5a4...0.13.5a5)
@@ -387,15 +395,15 @@
 
 ## [0.5.12a1](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.12a1) (2025-05-14)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.11...0.5.12a1)
-
-## [0.5.11](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11) (2025-03-26)
-
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.11...0.5.11)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/V0.5.11...0.5.12a1)
 
 ## [V0.5.11](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/V0.5.11) (2025-03-26)
 
-[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.11a2...V0.5.11)
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.11...V0.5.11)
+
+## [0.5.11](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11) (2025-03-26)
+
+[Full Changelog](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/compare/0.5.11a2...0.5.11)
 
 ## [0.5.11a2](https://github.com/OpenVoiceOS/ovos-skill-application-launcher/tree/0.5.11a2) (2025-03-26)
 
