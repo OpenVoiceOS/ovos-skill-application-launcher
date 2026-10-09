@@ -1,0 +1,4 @@
+ferme l'application {application}
+ferme {application}
+quitte l'application {application}
+quitte {application}

@@ -8,8 +8,8 @@ from shutil import which
 from typing import Dict, List, Union, Generator, Optional, Iterable, Tuple
 from functools import lru_cache
 import psutil
-from langcodes import closest_match
 from ovos_bus_client.message import Message
+from ovos_spec_tools import closest_lang
 from ovos_utils.bracket_expansion import expand_template
 from ovos_utils.lang import standardize_lang_tag
 from ovos_utils.log import LOG
@@ -19,6 +19,11 @@ from ovos_workshop.skills.fallback import FallbackSkill
 from padacioso import IntentContainer
 
 WindowMatch = Tuple[str, psutil.Process, float, str]  # for easy typing
+
+# key `match_app` sets on its result when it dropped a blacklisted
+# {application} value, so a caller can tell an excluded value apart from
+# a transcript that simply did not match
+BLACKLISTED = "blacklisted_application"
 
 
 class ApplicationLauncherSkill(FallbackSkill):
@@ -51,18 +56,57 @@ class ApplicationLauncherSkill(FallbackSkill):
         # we handle this in fallback stage to
         # allow more control over matching application names
         self.intent_matchers = {}
+        # per-language slot-value exclusion sets keyed by standardized lang tag;
+        # values here must never fill the open-vocabulary {application} slot
+        # (OVOS-INTENT-2 §4.3), keeping generic "open/close" phrasings from
+        # hijacking utterances owned by other skills
+        self.blacklists = {}
         self.register_fallback_intents()
         self.add_event(f"{self.skill_id}.async_prompt", self.handle_async_prompt)
 
     @lru_cache(10)
     def match_app(self, utterance: str, lang: str) -> Optional[Dict]:
-        best_lang, score = closest_match(lang, list(self.intent_matchers.keys()))
-        if score >= 10:
+        best_lang = closest_lang(lang, list(self.intent_matchers.keys()))
+        if best_lang is None:
             # unsupported lang
             return None
         best_lang = standardize_lang_tag(best_lang)
         res = self.intent_matchers[best_lang].calc_intent(utterance)
+        app = res.get("entities", {}).get("application")
+        if app and self._is_blacklisted(app, best_lang):
+            # a blacklisted value is never an application; drop it so the
+            # fallback declines and the utterance can reach its rightful skill
+            LOG.debug(f"'{app}' is blacklisted for the {{application}} slot, ignoring match")
+            res["entities"].pop("application", None)
+            # a dropped value and no match at all are both an absent
+            # entities.application, and the caller must tell them apart: a
+            # dropped value is a positive reason to decline the whole round
+            res[BLACKLISTED] = app
         return res
+
+    def _is_blacklisted(self, app: str, lang: str) -> bool:
+        """Check whether a candidate {application} value is excluded by a
+        `.blacklist` slot-value exclusion (OVOS-INTENT-2 §4.3).
+
+        A blacklist phrase excludes the value when its words occur in the value
+        as a contiguous sequence of whole words (not a raw substring), so `door`
+        excludes "the door" but not "doorbell".
+        """
+        if not self.blacklists:
+            return False
+        best_lang = closest_lang(lang, list(self.blacklists.keys()))
+        if best_lang is None:
+            return False
+        best_lang = standardize_lang_tag(best_lang)
+        value = app.lower().split()
+        for phrase in self.blacklists.get(best_lang, ()):
+            words = phrase.lower().split()
+            if not words:
+                continue
+            for i in range(len(value) - len(words) + 1):
+                if value[i:i + len(words)] == words:
+                    return True
+        return False
 
     def register_fallback_intents(self) -> None:
         """Register fallback intents from locale files."""
@@ -80,20 +124,67 @@ class ApplicationLauncherSkill(FallbackSkill):
                     samples = [option for line in f.read().split("\n")
                                if not line.startswith("#") and line.strip()
                                for option in expand_template(line)]
+                    # the utterance normalizer turns a zero width non-joiner into a space
+                    samples += [s.replace("\u200c", " ") for s in samples if "\u200c" in s]
                     self.intent_matchers[l2].add_intent(intent_name, samples)
 
+            # slot-value exclusion for the {application} slot (OVOS-INTENT-2 §4.3);
+            # base name matches the slot, so it applies to every intent above
+            blacklist = join(self.root_dir, "locale", lang, "application.blacklist")
+            if os.path.isfile(blacklist):
+                l2 = standardize_lang_tag(lang)
+                with open(blacklist) as f:
+                    self.blacklists[l2] = [option for line in f.read().split("\n")
+                                           if not line.startswith("#") and line.strip()
+                                           for option in expand_template(line)]
+                LOG.debug(f"'{self.skill_id}' - loaded '{l2}' {{application}} blacklist "
+                          f"({len(self.blacklists[l2])} phrases)")
+
+    def _match_utterances(self, message: Message) -> Optional[Dict]:
+        """The first transcript in the message that names an application, or
+        None if no transcript does or any of them names an excluded value.
+
+        The fallback pipeline hands over the whole n-best list in
+        ``message.data["utterances"]``. Its ``utterance`` key holds the first
+        entry of that list, so both methods read one transcript before, and the
+        transcripts are not interchangeable: a Farsi launch phrase is written
+        with a zero-width non-joiner inside the verb, and the container matches
+        that form alone. Reading one entry drops a match the skill owns, so
+        every entry is read.
+
+        The entries are transcriptions of ONE utterance, so the
+        `application.blacklist` slot-value exclusion (OVOS-INTENT-2 §4.3) is
+        evidence about that utterance and not about the entry that carried it.
+        A hit on any entry declines the whole round; otherwise reading every
+        entry would make each gap in a blacklist N times easier to hit, and
+        "open the blinds" would be answered here because "open the blind"
+        transcribed beside it.
+
+        The first clean match wins, so the order of ``utterances`` is trusted
+        to rank the transcripts; the container's ``conf`` is not read.
+        """
+        match = None
+        for utterance in message.data.get("utterances") or []:
+            res = self.match_app(utterance, self.lang)
+            if not res:
+                continue
+            if res.get(BLACKLISTED):
+                LOG.debug(f"'{res[BLACKLISTED]}' is blacklisted in transcript "
+                          f"'{utterance}', declining the whole n-best list")
+                return None
+            if match is None and res.get("entities", {}).get("application"):
+                match = res
+        return match
+
     def can_answer(self, message: Message) -> bool:
-        utterance = message.data["utterances"][0]
-        res = self.match_app(utterance, self.lang)
-        return bool(res.get('entities', {}).get("application"))
+        return self._match_utterances(message) is not None
 
     @fallback_handler(priority=4)
     def handle_fallback(self, message) -> bool:
         """Handle fallback utterances for launching and closing applications."""
-        utterance = message.data.get("utterance", "")
-        res = self.match_app(utterance, self.lang)
-        app = res.get('entities', {}).get("application")
-        if app:
+        res = self._match_utterances(message)
+        if res:
+            app = res["entities"]["application"]
             LOG.debug(f"Application name match: {res}")
             if res["name"] == "launch":
                 if self.is_running(app):
@@ -108,8 +199,8 @@ class ApplicationLauncherSkill(FallbackSkill):
         app = message.data["app"]
         # in order for fallback to not time out we can't ask user questions in the other handler
         # so we consume the utterance first, and then proceed to ask the user to clarify action
-        launch = True
-        switch = False
+        launch = None
+        switch = None
 
         self.speak_dialog("already_running", {"application": app})
 
@@ -118,21 +209,25 @@ class ApplicationLauncherSkill(FallbackSkill):
                 if switch not in ["no", "yes"]:
                     switch = self.ask_yesno("confirm_switch")
                     LOG.debug(f"user confirmation: {switch}")
-                    if switch and switch == "yes":
+                    if switch == "yes":
                         win = self.match_window(app)
                         window_id = win[0][0] if win else None
                         self.switch_window(window_id)
                         return True
-        if not switch:
-            for i in range(5):
-                if launch not in ["no", "yes"]:
-                    launch = self.ask_yesno("confirm_launch")
-                    LOG.debug(f"user confirmation: {launch}")
-                    if launch == "no":
-                        return True  # no action
+        # note: the switch loop above always `return`s on "yes", so if we get
+        # here switch is never "yes" - ask about launching a new instance
+        for i in range(5):
+            if launch not in ["no", "yes"]:
+                launch = self.ask_yesno("confirm_launch")
+                LOG.debug(f"user confirmation: {launch}")
+                if launch == "no":
+                    return True  # no action
 
-        # launch
-        self.launch_app(app)
+        # only an explicit "yes" launches the app; "no" or an unclear/
+        # unanswered prompt (None) must never fall through to launching
+        if launch == "yes":
+            return self.launch_app(app)
+        return True  # no confirmation received, no action
 
     def launch_app(self, app: str) -> bool:
         """Launch an application by name if a match is found.
@@ -171,7 +266,13 @@ class ApplicationLauncherSkill(FallbackSkill):
     #########
     # process management
     def match_process(self, app: str) -> Iterable[psutil.Process]:
-        cmd, _ = match_one(app.title(), self.applist)
+        cmd, score = match_one(app.title(), self.applist)
+        # match_one always returns the closest known application, however
+        # unrelated. Without the same threshold launch_app applies, "shut off
+        # the lights" resolved to Lightworks and terminated it.
+        if score < self.settings.get("thresh", 0.85):
+            LOG.debug(f"No application matches '{app}' (best: {cmd}, score {score:.2f})")
+            return
         cmd = cmd.split(" ")[0].split("/")[-1]
 
         # Retrieve the list of processes and sort by their start time (descending order)
@@ -282,7 +383,14 @@ class ApplicationLauncherSkill(FallbackSkill):
                     v = [v for v in v.split(LIST_DELIM) if v]
 
                 if "[" in key:
-                    l = standardize_lang_tag(key.split("[")[-1].split("]")[0])
+                    raw_lang = key.split("[")[-1].split("]")[0]
+                    try:
+                        l = standardize_lang_tag(raw_lang)
+                    except ValueError:
+                        # .desktop files may carry POSIX-style locale modifiers
+                        # (e.g. "sr@latn") that are not valid BCP-47 tags; keep
+                        # the original key rather than crashing the parser
+                        l = raw_lang
                     k = key.split("[")[0]
                     key = f"{k}[{l}]"
 
