@@ -3,3 +3,5 @@ stop {application}
 verlaat {application}
 {application} beëindigen
 {application} stoppen
+sluit (de app|het programma) {application} af
+(kun je|kan je|wil je) (de app|het programma) {application} (sluiten|afsluiten)
