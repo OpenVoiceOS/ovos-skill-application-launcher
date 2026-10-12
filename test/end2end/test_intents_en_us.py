@@ -63,7 +63,7 @@ LAUNCH_UTTERANCES = [
     ("i want to open blender", "blender"),
     ("i need to open blender", "blender"),
     ("pull up spotify", "spotify"),
-    ("bring up the calculator", "the calculator"),
+    ("bring up the calculator", "calculator"),
     ("boot up gimp", "gimp"),
     ("go ahead and start kcalc", "kcalc"),
 ]

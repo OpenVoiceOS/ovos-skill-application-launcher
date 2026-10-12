@@ -11,17 +11,17 @@
 # Anaphoric pronouns / deictics — refer back to something, never name an app.
 # "open it", "close that", "open this one"
 to
-że
-O co chodziło?
+tamto
+tamte
 te
 # Home-automation openables — owned by Home Assistant / PHAL skills.
 # "open the garage door", "close the blinds", "open the gate"
 drzwi
 garaż
 brama
-obleczki
-zasłożenie
-Zakręty
+rolety
+zasłony
+żaluzje
 # Content skills.
 # "open the news"    -> ovos-skill-news
 # "open the camera"  -> camera skill
@@ -33,4 +33,4 @@ pogoda
 # "shut down the computer", "close the system"
 komputer
 system
-ks
+pc

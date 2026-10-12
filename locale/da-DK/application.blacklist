@@ -11,6 +11,15 @@ de der
 [de] persienner
 [de] gardiner
 [de] rullegardiner
+# definite forms carry a suffix in Danish: "åbn garagedøren", "luk gardinerne"
+døren
+dørene
+garageporten
+garagedøren
+porten
+persiennerne
+gardinerne
+rullegardinerne
 
 nyhederne
 kameraet
