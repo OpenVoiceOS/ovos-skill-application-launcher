@@ -22,7 +22,8 @@ import pytest
 from ovos_bus_client.message import Message
 from ovos_bus_client.session import Session
 from ovos_utils.log import LOG
-from ovoscope import End2EndTest, get_minicroft
+from ovoscope import End2EndTest
+from ovoscope.routing import get_prototype_minicroft
 
 SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
 LANG = "en-US"
@@ -73,7 +74,7 @@ GOLDEN_ROWS = [pytest.param(r, id=r["utterance"]) for r in _load_golden_rows()]
 def minicroft():
     """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
     LOG.set_level("CRITICAL")
-    mc = get_minicroft([SKILL_ID])
+    mc = get_prototype_minicroft([SKILL_ID], lang=LANG, extra_pipelines=FALLBACK_PIPELINE)
     skill = mc.plugin_skills[SKILL_ID].instance
     skill.is_running = lambda app: False
     # record the action and application the handler asks for
