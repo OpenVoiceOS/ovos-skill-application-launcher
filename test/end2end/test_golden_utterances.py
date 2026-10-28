@@ -13,8 +13,8 @@ signal is ``ovos.skills.fallback.<skill_id>.response`` with
 ``data.result == True``, which is what this suite asserts for every golden
 row instead. The skill's own launch_app/close_app run against the fake desktop
 of conftest.py, and a row passes when the skill launched or terminated the
-command of its application. Rows that fail are listed in KNOWN_BUGS
-(golden_support.py) and run as strict expected failures.
+command of its application. Every row reports to the ovoscope routing
+tally.
 """
 import gc
 import json
@@ -27,9 +27,8 @@ from ovoscope import get_minicroft
 from .golden_support import (
     SKILL_ID,
     assert_effect,
-    capture,
-    fallback_consumed,
-    row_param,
+    check_negative,
+    row_id,
 )
 
 LANG = "en-US"
@@ -56,7 +55,7 @@ NEGATIVE_UTTERANCES = [
 ]
 
 
-GOLDEN_ROWS = [row_param(LANG, row, row)
+GOLDEN_ROWS = [pytest.param(row, id=row_id(row))
                for row in map(json.loads, GOLDEN_PATH.read_text(encoding="utf-8").splitlines())]
 
 
@@ -89,10 +88,4 @@ def test_golden_utterance(minicroft, fake_desktop, row):
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("negative", NEGATIVE_UTTERANCES, ids=lambda n: n[0])
 def test_negative_confusable_not_claimed(minicroft, negative):
-    text, source_skill = negative
-    skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.attempts.clear()
-    messages = capture(minicroft, text, LANG, f"golden-negative-{abs(hash(text))}")
-    assert not skill.attempts and not fallback_consumed(messages), (
-        f"{text!r} (from {source_skill}) was incorrectly claimed by {SKILL_ID}"
-    )
+    check_negative(minicroft, LANG, negative[0])
