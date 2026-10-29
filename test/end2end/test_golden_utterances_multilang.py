@@ -1,23 +1,30 @@
 """Multilingual golden-utterance end-to-end coverage for
 ovos-skill-application-launcher.
 
-test_golden_utterances.py only exercises en-US; every other locale under
-locale/ ships real launch.intent / close.intent templates (padacioso
-IntentContainer, see __init__.py register_fallback_intents()) that were
-completely untested end-to-end. This suite runs every row of every
-golden_utterances_<lang>.jsonl file, including the machine-generated rows
-marked needs_manual, so each shipped locale is exercised.
+Every locale under locale/ ships launch.intent / close.intent templates
+(padacioso IntentContainer, see __init__.py register_fallback_intents()).
+This suite runs every row of every golden_utterances_<lang>.jsonl file,
+including the machine-generated rows marked needs_manual, so each shipped
+locale is exercised.
 
 The skill is a FallbackSkill: it exposes no ovos.intent.matched event, only
 a high-priority fallback handler matched by its own padacioso containers
 (one IntentContainer per locale, all loaded at initialize() regardless of
-which locale MiniCroft boots as primary). The discriminating signal is
-ovos.skills.fallback.<skill_id>.response with data.result == True, exactly
-as test_golden_utterances.py already asserts for en-US.
+which locale MiniCroft boots as primary).
 
-Row construction: each row is derived mechanically from that locale's own
-launch.intent / close.intent template lines (bracket-expansion choices
-already present in the file), never a translation of the English rows.
+Rows are natural requests a speaker of the locale makes, each naming a real
+application. A row's ``app`` field holds that application. The skill's own
+launch_app/close_app run against the fake desktop in conftest.py, and the test
+asserts the effect: the skill launched or terminated the command of ``app``.
+A row rewritten from an older template-made row keeps the old text in
+``rewritten_from``.
+
+negative_utterances_<lang>.jsonl holds requests for other skills that share
+the launcher's verbs ("open the garage door", "close the blinds"). Each one
+must leave the fallback unclaimed.
+
+Every row reports to the ovoscope routing tally, and the run fails when the
+share of rows that route falls below ``ovoscope_min_routing_rate``.
 
 One MiniCroft is booted PER LOCALE (not one shared instance with every
 locale as a secondary_lang -- that boot shape hangs on the ovoscope
@@ -27,67 +34,41 @@ by lang; pytest reuses one boot per distinct lang value across every row
 belonging to that lang and tears it down before moving to the next.
 """
 import gc
-import json
-from pathlib import Path
-from typing import List
 
 import pytest
-from ovos_bus_client.message import Message
-from ovos_bus_client.session import Session
+from ovos_utils.bracket_expansion import expand_template
 from ovos_utils.log import LOG
-from ovoscope import End2EndTest, get_minicroft
+from ovoscope import get_minicroft
 
-SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
-FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
-FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
-
-END2END_DIR = Path(__file__).parent
+from .golden_support import (
+    END2END_DIR,
+    LOCALE_ROOT,
+    SKILL_ID,
+    assert_effect,
+    check_negative,
+    load_rows,
+    row_id,
+)
 
 LANGS = sorted(p.stem.split("golden_utterances_", 1)[1]
                for p in END2END_DIR.glob("golden_utterances_*.jsonl"))
 assert LANGS, "no golden_utterances_<lang>.jsonl files found"
-
-# application names the golden rows put in the {application} slot
-KNOWN_APPS = ("spotify", "firefox")
-
-
-def _load_rows(lang):
-    path = END2END_DIR / f"golden_utterances_{lang}.jsonl"
-    rows = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(json.loads(line))
-    assert rows, f"{lang}: no golden rows"
-    return rows
-
-
-ALL_ROWS = []
-for _lang in LANGS:
-    for _row in _load_rows(_lang):
-        ALL_ROWS.append(_row)
-
-
-def _golden_id(row):
-    return f"{row['lang']}-{row['intent_label']}-{row['utterance']}"
+NEGATIVE_LANGS = sorted(p.stem.split("negative_utterances_", 1)[1]
+                        for p in END2END_DIR.glob("negative_utterances_*.jsonl"))
+ROWS = {lang: load_rows(lang) for lang in LANGS}
 
 
 @pytest.fixture(scope="module")
-def minicroft(request):
+def minicroft(request, fake_desktop):
     """One MiniCroft boot per distinct lang value, reused across every row
     of that lang (pytest caches module-scoped indirect fixtures by param
     value and groups tests to minimise re-instantiation)."""
     lang = request.param
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID], max_wait=150, lang=lang)
-    skill = mc.plugin_skills[SKILL_ID].instance
-    skill.is_running = lambda app: False
-    skill.calls = []
-    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
-    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    restore = fake_desktop.install(mc.plugin_skills[SKILL_ID].instance)
     yield mc
+    restore()
     ee = getattr(mc.bus, "ee", None)
     if ee is not None:
         events = getattr(ee, "_events", None)
@@ -98,78 +79,45 @@ def minicroft(request):
     mc.stop()
 
 
-def _capture(minicroft, utterance: str, lang: str, session_id: str) -> List[Message]:
-    session = Session(session_id)
-    session.lang = lang
-    session.pipeline = list(FALLBACK_PIPELINE)
-
-    message = Message(
-        "recognizer_loop:utterance",
-        {"utterances": [utterance], "lang": lang},
-        {"session": session.serialize()},
-    )
-
-    test = End2EndTest(
-        minicroft=minicroft,
-        skill_ids=[],
-        eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
-        flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["speak", "ovos.utterance.speak",
-                          "mycroft.audio.play_sound"],
-        source_message=message,
-        expected_messages=[],
-        test_message_number=False,
-        test_boot_sequence=False,
-        test_routing=False,
-        test_final_session=False,
-        verbose=False,
-    )
-    return test.execute()
-
-
-def _fallback_consumed(messages: List[Message]) -> bool:
-    for m in messages:
-        if m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True:
-            return True
-    return False
-
-
-KNOWN_BUGS = {}
-
-_PARAMS = [
-    pytest.param(row["lang"], row, id=_golden_id(row))
-    for row in ALL_ROWS
-]
+@pytest.mark.timeout(600)
+@pytest.mark.parametrize("minicroft,row", [pytest.param(lang, row, id=row_id(row))
+                                          for lang in LANGS for row in ROWS[lang]],
+                         indirect=["minicroft"])
+def test_golden_utterance_multilang(minicroft, fake_desktop, row):
+    assert_effect(minicroft, fake_desktop, row["lang"], row)
 
 
 @pytest.mark.timeout(600)
-@pytest.mark.parametrize("minicroft,row", _PARAMS, indirect=["minicroft"])
-def test_golden_utterance_multilang(minicroft, row):
-    skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.calls.clear()
-    messages = _capture(minicroft, row["utterance"], row["lang"], f"golden-{_golden_id(row)}")
-    matched = _fallback_consumed(messages)
-    bug_key = (row["lang"], row["utterance"])
-    if bug_key in KNOWN_BUGS and not matched:
-        pytest.xfail(reason=f"known-bug: {KNOWN_BUGS[bug_key]}")
-    assert matched, (
-        f"[{row['lang']}] {row['utterance']!r}: expected the launcher fallback to "
-        f"consume it (intent_label={row['intent_label']!r}), got "
-        f"{[m.msg_type for m in messages]!r}"
-    )
-    words = row["utterance"].split()
-    app = row.get("app") or next((a for a in KNOWN_APPS if a in words), "something")
-    assert skill.calls == [(row["intent_label"], app)], (
-        f"[{row['lang']}] {row['utterance']!r}: expected {row['intent_label']}_app({app!r}), "
-        f"the handler asked for {skill.calls}"
-    )
+@pytest.mark.parametrize("minicroft,row", [pytest.param(lang, row, id=f"{lang}-negative-{row['utterance']}")
+                                          for lang in NEGATIVE_LANGS for row in load_rows(lang, "negative")],
+                         indirect=["minicroft"])
+def test_negative_utterance_multilang(minicroft, row):
+    check_negative(minicroft, row["lang"], row["utterance"])
+
+
+def test_every_locale_ships_every_en_us_intent_file():
+    reference = {p.name for p in (LOCALE_ROOT / "en-US").glob("*.intent")}
+    assert reference, "en-US ships no .intent files"
+    locales = [d for d in LOCALE_ROOT.iterdir() if d.is_dir()]
+    missing = {d.name: sorted(reference - {p.name for p in d.glob("*.intent")}) for d in locales}
+    missing = {lang: files for lang, files in missing.items() if files}
+    assert not missing, f"locales missing en-US intent files: {missing}"
+    empty = {d.name: sorted(name for name in reference if not any(
+        line.strip() and not line.startswith("#")
+        for line in (d / name).read_text(encoding="utf-8").splitlines())) for d in locales}
+    empty = {lang: files for lang, files in empty.items() if files}
+    assert not empty, f"intent files with no template line: {empty}"
+    for d in locales:
+        for name in reference:
+            for line in (d / name).read_text(encoding="utf-8").splitlines():
+                if line.strip() and not line.startswith("#"):
+                    assert list(expand_template(line)), f"{d.name}/{name}: {line!r} expands to nothing"
 
 
 def test_every_shipping_locale_has_a_golden_file():
     golden = {p.stem.split("_", 2)[2]
               for p in END2END_DIR.glob("golden_utterances_*.jsonl")}
-    locale_root = END2END_DIR.parent.parent / "locale"
-    shipping = {d.name for d in locale_root.iterdir()
+    shipping = {d.name for d in LOCALE_ROOT.iterdir()
                 if d.is_dir() and any(d.rglob("*.intent"))}
     assert golden == shipping, (
         f"golden files {sorted(golden ^ shipping)} differ from shipping locales"

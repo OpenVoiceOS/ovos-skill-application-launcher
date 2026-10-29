@@ -12,10 +12,10 @@
 # "open it", "close that", "open this one"
 Это
 это
-что
+то
 Они
 вот эти
-которые
+те
 # Home-automation openables — owned by Home Assistant / PHAL skills.
 # "open the garage door", "close the blinds", "open the gate"
 дверь
@@ -24,7 +24,7 @@
 ворота
 жалюзи
 занавески
-Затворы
+ставни
 # Content skills.
 # "open the news"    -> ovos-skill-news
 # "open the camera"  -> camera skill

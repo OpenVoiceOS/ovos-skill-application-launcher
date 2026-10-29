@@ -2,18 +2,17 @@
 # Shares the open-vocabulary {application} slot with launch.intent and the same
 # application.blacklist slot-value exclusion.
 Zamknij {application}
-wyjście {application}
 Zabij {application}
-wygaś {application}
+zakończ program {application}
 zamknij aplikację {application}
-aplikacja wyjścia {application}
+wyjdź z aplikacji {application}
 zakończ aplikację {application}
 Możesz zamknąć {application}
 Mogłabyś zamknąć {application}
-możesz wyjść {application}
-Możesz wyjść? {application}
-/Chcę zamknąć. {application}
+możesz wyjść z aplikacji {application}
+czy możesz zamknąć aplikację {application}
+chcę zamknąć aplikację {application}
 Muszę zamknąć {application}
-Chcę uciekać {application}
-Muszę uciekać. {application}
-Zamknij {application} w dół
+chcę wyjść z aplikacji {application}
+muszę wyjść z programu {application}
+wyłącz program {application}

@@ -3,3 +3,5 @@ finalizar {application}
 parar {application}
 quitar {application}
 salir de {application}
+(cierra|termina|sal de) (la aplicación|el programa) {application}
+(puedes|podrías) cerrar (la aplicación|el programa) {application}

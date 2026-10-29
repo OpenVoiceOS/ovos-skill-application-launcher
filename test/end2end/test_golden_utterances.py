@@ -11,24 +11,27 @@ single high-priority fallback handler that matches "open/launch/close
 therefore no ``ovos.intent.matched`` event to key on -- the discriminating
 signal is ``ovos.skills.fallback.<skill_id>.response`` with
 ``data.result == True``, which is what this suite asserts for every golden
-row instead.
+row instead. The skill's own launch_app/close_app run against the fake desktop
+of conftest.py, and a row passes when the skill launched or terminated the
+command of its application. Every row reports to the ovoscope routing
+tally.
 """
 import gc
 import json
 from pathlib import Path
-from typing import List
 
 import pytest
-from ovos_bus_client.message import Message
-from ovos_bus_client.session import Session
 from ovos_utils.log import LOG
-from ovoscope import End2EndTest, get_minicroft
+from ovoscope import get_minicroft
 
-SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
+from .golden_support import (
+    SKILL_ID,
+    assert_effect,
+    check_negative,
+    row_id,
+)
+
 LANG = "en-US"
-FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
-FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
-
 GOLDEN_PATH = Path(__file__).parent / "golden_utterances.jsonl"
 
 # utterances lifted verbatim from OTHER skills' golden-utterance slices,
@@ -52,35 +55,18 @@ NEGATIVE_UTTERANCES = [
 ]
 
 
-def _load_golden_rows():
-    rows = []
-    with open(GOLDEN_PATH, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if row.get("needs_manual"):
-                continue
-            rows.append(row)
-    return rows
-
-
-GOLDEN_ROWS = [pytest.param(r, id=r["utterance"]) for r in _load_golden_rows()]
+GOLDEN_ROWS = [pytest.param(row, id=row_id(row))
+               for row in map(json.loads, GOLDEN_PATH.read_text(encoding="utf-8").splitlines())]
 
 
 @pytest.fixture(scope="module")
-def minicroft():
-    """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
+def minicroft(fake_desktop):
+    """Boot one MiniCroft on a fake desktop (see conftest.py)."""
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID])
-    skill = mc.plugin_skills[SKILL_ID].instance
-    skill.is_running = lambda app: False
-    # record the action and application the handler asks for
-    skill.calls = []
-    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
-    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    restore = fake_desktop.install(mc.plugin_skills[SKILL_ID].instance)
     yield mc
+    restore()
     # see test_intents_en_us.py's teardown docstring for why the listener
     # dict is drained before mc.stop() takes pyee's non-reentrant lock.
     ee = getattr(mc.bus, "ee", None)
@@ -93,66 +79,13 @@ def minicroft():
     mc.stop()
 
 
-def _capture(minicroft, utterance: str) -> List[Message]:
-    session = Session(f"golden-{abs(hash(utterance))}")
-    session.lang = LANG
-    session.pipeline = list(FALLBACK_PIPELINE)
-
-    message = Message(
-        "recognizer_loop:utterance",
-        {"utterances": [utterance], "lang": LANG},
-        {"session": session.serialize()},
-    )
-
-    test = End2EndTest(
-        minicroft=minicroft,
-        skill_ids=[],
-        eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
-        flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["speak", "ovos.utterance.speak",
-                          "mycroft.audio.play_sound"],
-        source_message=message,
-        expected_messages=[],
-        test_message_number=False,
-        test_boot_sequence=False,
-        test_routing=False,
-        test_final_session=False,
-        verbose=False,
-    )
-    return test.execute()
-
-
-def _fallback_consumed(messages: List[Message]) -> bool:
-    for m in messages:
-        if m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True:
-            return True
-    return False
-
-
 @pytest.mark.timeout(60)
-@pytest.mark.parametrize("row", GOLDEN_ROWS, ids=lambda r: r["utterance"])
-def test_golden_utterance(minicroft, row):
-    skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.calls.clear()
-    messages = _capture(minicroft, row["utterance"])
-    assert _fallback_consumed(messages), (
-        f"{row['utterance']!r}: expected the launcher fallback to consume it "
-        f"(intent_label={row['intent_label']!r}), got "
-        f"{[m.msg_type for m in messages]!r}"
-    )
-    # every golden row names either "something" or one known application
-    app = "spotify" if "spotify" in row["utterance"].split() else "something"
-    assert skill.calls == [(row["intent_label"], app)], (
-        f"{row['utterance']!r}: expected {row['intent_label']}_app({app!r}), "
-        f"the handler asked for {skill.calls}"
-    )
+@pytest.mark.parametrize("row", GOLDEN_ROWS)
+def test_golden_utterance(minicroft, fake_desktop, row):
+    assert_effect(minicroft, fake_desktop, LANG, row)
 
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("negative", NEGATIVE_UTTERANCES, ids=lambda n: n[0])
 def test_negative_confusable_not_claimed(minicroft, negative):
-    text, source_skill = negative
-    messages = _capture(minicroft, text)
-    assert not _fallback_consumed(messages), (
-        f"{text!r} (from {source_skill}) was incorrectly claimed by {SKILL_ID}"
-    )
+    check_negative(minicroft, LANG, negative[0])
