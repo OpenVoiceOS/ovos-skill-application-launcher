@@ -1,0 +1,3 @@
+(tampa|barra|quita|acaba|aucís|arrèsta) {application}
+(tampa|barra|quita|acaba) (lo |la |l'|)(app|aplicacion|programa|fenèstra) {application}
+sortís (de |d'){application}

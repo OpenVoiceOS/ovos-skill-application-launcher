@@ -1,0 +1,7 @@
+cerrar {application}
+finalizar {application}
+parar {application}
+quitar {application}
+salir de {application}
+(cierra|cierre|sal de|salga de) (la aplicación|la app|el programa) {application}
+[me] (puedes|podrías|puede|podría) cerrar (la aplicación|la app|el programa) {application}

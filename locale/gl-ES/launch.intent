@@ -1,0 +1,5 @@
+abrir {application}
+executar {application}
+iniciar {application}
+(abre|executa|inicia|arrinca) (a aplicación|o programa) {application}
+(podes|poderías) (abrir|iniciar) (a aplicación|o programa) {application}

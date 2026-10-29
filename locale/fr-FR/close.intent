@@ -1,0 +1,5 @@
+ferme l'application {application}
+ferme {application}
+quitte l'application {application}
+quitte {application}
+(tu peux|tu pourrais) (fermer|quitter) (l'application|le programme) {application}

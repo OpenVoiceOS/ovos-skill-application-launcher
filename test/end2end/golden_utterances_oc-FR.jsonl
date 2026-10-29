@@ -1,0 +1,6 @@
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "avia firefox", "lang": "oc-FR", "intent_label": "launch", "app": "firefox", "needs_manual": true, "machine_generated": true, "rewritten_from": "avia something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "lança la aplicacion spotify", "lang": "oc-FR", "intent_label": "launch", "app": "spotify", "needs_manual": false}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "lança gimp", "lang": "oc-FR", "intent_label": "launch", "app": "gimp", "needs_manual": true, "machine_generated": true, "rewritten_from": "lança something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "tampa firefox", "lang": "oc-FR", "intent_label": "close", "app": "firefox", "needs_manual": true, "machine_generated": true, "rewritten_from": "tampa something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "barra la aplicacion spotify", "lang": "oc-FR", "intent_label": "close", "app": "spotify", "needs_manual": false}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "barra thunderbird", "lang": "oc-FR", "intent_label": "close", "app": "thunderbird", "needs_manual": true, "machine_generated": true, "rewritten_from": "barra something"}

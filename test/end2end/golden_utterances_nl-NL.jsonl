@@ -1,0 +1,10 @@
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "draai firefox", "lang": "nl-NL", "intent_label": "launch", "app": "firefox", "needs_manual": true, "machine_generated": true, "rewritten_from": "draai something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "open spotify", "lang": "nl-NL", "intent_label": "launch", "app": "spotify", "needs_manual": false}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "start de rekenmachine", "lang": "nl-NL", "intent_label": "launch", "app": "rekenmachine", "needs_manual": true, "machine_generated": true, "rewritten_from": "draai something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "sluit firefox", "lang": "nl-NL", "intent_label": "close", "app": "firefox", "needs_manual": true, "machine_generated": true, "rewritten_from": "sluit something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "stop spotify", "lang": "nl-NL", "intent_label": "close", "app": "spotify", "needs_manual": false}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "sluit thunderbird af", "lang": "nl-NL", "intent_label": "close", "app": "thunderbird", "needs_manual": true, "machine_generated": true, "rewritten_from": "sluit something"}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "start spotify", "lang": "nl-NL", "intent_label": "launch", "needs_manual": true, "machine_generated": true}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "verlaat spotify", "lang": "nl-NL", "intent_label": "close", "needs_manual": true, "machine_generated": true}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "kun je gimp openen", "lang": "nl-NL", "intent_label": "launch", "app": "gimp", "needs_manual": true, "machine_generated": true}
+{"skill_id": "ovos-skill-application-launcher.openvoiceos", "utterance": "wil je vlc afsluiten", "lang": "nl-NL", "intent_label": "close", "app": "vlc", "needs_manual": true, "machine_generated": true}
