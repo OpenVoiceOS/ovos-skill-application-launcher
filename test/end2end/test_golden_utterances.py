@@ -70,16 +70,12 @@ GOLDEN_ROWS = [pytest.param(r, id=r["utterance"]) for r in _load_golden_rows()]
 
 
 @pytest.fixture(scope="module")
-def minicroft():
-    """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
+def minicroft(fake_phal):
+    """Boot one MiniCroft with a stand-in PHAL plugin (see conftest.py)."""
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID])
     skill = mc.plugin_skills[SKILL_ID].instance
-    skill.is_running = lambda app: False
-    # record the action and application the handler asks for
-    skill.calls = []
-    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
-    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    skill.calls = fake_phal(mc.bus)
     yield mc
     # see test_intents_en_us.py's teardown docstring for why the listener
     # dict is drained before mc.stop() takes pyee's non-reentrant lock.
@@ -93,7 +89,7 @@ def minicroft():
     mc.stop()
 
 
-def _capture(minicroft, utterance: str) -> List[Message]:
+def _capture(minicroft, utterance: str, ignore_speak: bool = True) -> List[Message]:
     session = Session(f"golden-{abs(hash(utterance))}")
     session.lang = LANG
     session.pipeline = list(FALLBACK_PIPELINE)
@@ -109,8 +105,8 @@ def _capture(minicroft, utterance: str) -> List[Message]:
         skill_ids=[],
         eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
         flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["speak", "ovos.utterance.speak",
-                          "mycroft.audio.play_sound"],
+        ignore_messages=["mycroft.audio.play_sound"] + (
+            ["speak", "ovos.utterance.speak"] if ignore_speak else []),
         source_message=message,
         expected_messages=[],
         test_message_number=False,
@@ -156,3 +152,68 @@ def test_negative_confusable_not_claimed(minicroft, negative):
     assert not _fallback_consumed(messages), (
         f"{text!r} (from {source_skill}) was incorrectly claimed by {SKILL_ID}"
     )
+
+
+def _boot_and_stop(setup=None):
+    LOG.set_level("CRITICAL")
+    mc = get_minicroft([SKILL_ID])
+    teardown = setup(mc) if setup else None
+    yield mc
+    if teardown:
+        teardown()
+    ee = getattr(mc.bus, "ee", None)
+    if ee is not None:
+        events = getattr(ee, "_events", None)
+        if events is not None:
+            for event in list(events.keys()):
+                events.pop(event, None)
+        gc.collect()
+    mc.stop()
+
+
+def _spoken(messages: List[Message]) -> List[str]:
+    return [m.data.get("utterance", "") for m in messages
+            if m.msg_type in ("speak", "ovos.utterance.speak")]
+
+
+@pytest.fixture(scope="module")
+def minicroft_no_phal():
+    """A MiniCroft with no PHAL plugin on the bus: a stock install of the
+    skill without ovos-PHAL-plugin-app-launcher."""
+    yield from _boot_and_stop()
+
+
+@pytest.mark.timeout(60)
+def test_no_phal_fallback_speaks_error(minicroft_no_phal):
+    """With no PHAL plugin answering, a launch request speaks the
+    error_no_phal dialog instead of hanging or crashing."""
+    messages = _capture(minicroft_no_phal, "open firefox", ignore_speak=False)
+    spoken = _spoken(messages)
+    assert any("launcher service" in s for s in spoken), spoken
+
+
+@pytest.fixture(scope="module")
+def minicroft_real_phal():
+    """A MiniCroft with the published ovos-PHAL-plugin-app-launcher on the
+    bus, so the request and response contract is the plugin's own."""
+    from ovos_phal_plugin_app_launcher import AppLauncherPHALPlugin
+
+    def setup(mc):
+        # the plugin checks the host's real processes, so the name must be
+        # one that no process on the runner carries
+        plugin = AppLauncherPHALPlugin(bus=mc.bus, config={"user_commands": {"something": "true"}})
+        return plugin.shutdown
+
+    yield from _boot_and_stop(setup)
+
+
+@pytest.mark.timeout(60)
+def test_golden_utterance_against_real_phal_plugin(minicroft_real_phal):
+    """The fallback also reports ``result == True`` when it only speaks
+    error_no_phal, so the plugin's own launch response with
+    ``success: true`` must be on the bus and the error must not be spoken."""
+    messages = _capture(minicroft_real_phal, "open something", ignore_speak=False)
+    assert _fallback_consumed(messages), [m.msg_type for m in messages]
+    launches = [m for m in messages if m.msg_type == "ovos.phal.app_launcher.launch.response"]
+    assert [m.data.get("success") for m in launches] == [True], launches
+    assert not any("launcher service" in s for s in _spoken(messages)), _spoken(messages)
