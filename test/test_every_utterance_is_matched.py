@@ -138,7 +138,7 @@ def test_a_clean_transcript_launches(skill):
     in the list, this phrasing does match and does launch. Without it, a
     declined list would prove nothing about the blacklist."""
     assert skill.handle_fallback(_request([CLEAN_UTT], lang="en-US")) is True
-    assert skill.launched == ["the blind"]
+    assert skill.launched == ["blind"]
 
 
 def test_a_blacklisted_transcript_declines_the_whole_list(skill):

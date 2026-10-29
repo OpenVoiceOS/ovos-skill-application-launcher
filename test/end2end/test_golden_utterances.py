@@ -11,24 +11,30 @@ single high-priority fallback handler that matches "open/launch/close
 therefore no ``ovos.intent.matched`` event to key on -- the discriminating
 signal is ``ovos.skills.fallback.<skill_id>.response`` with
 ``data.result == True``, which is what this suite asserts for every golden
-row instead.
+row instead. The skill's own launch_app/close_app run against the fake desktop
+of conftest.py, and a row passes when the skill launched or terminated the
+command of its application. Every row reports to the ovoscope routing
+tally.
 """
 import gc
 import json
 from pathlib import Path
-from typing import List
 
 import pytest
 from ovos_bus_client.message import Message
-from ovos_bus_client.session import Session
 from ovos_utils.log import LOG
-from ovoscope import End2EndTest, get_minicroft
+from ovoscope import get_minicroft
 
-SKILL_ID = "ovos-skill-application-launcher.openvoiceos"
+from .golden_support import (
+    SKILL_ID,
+    assert_effect,
+    capture,
+    check_negative,
+    fallback_consumed,
+    row_id,
+)
+
 LANG = "en-US"
-FALLBACK_RESPONSE = f"ovos.skills.fallback.{SKILL_ID}.response"
-FALLBACK_PIPELINE = ["ovos-fallback-pipeline-plugin-high"]
-
 GOLDEN_PATH = Path(__file__).parent / "golden_utterances.jsonl"
 
 # utterances lifted verbatim from OTHER skills' golden-utterance slices,
@@ -52,21 +58,8 @@ NEGATIVE_UTTERANCES = [
 ]
 
 
-def _load_golden_rows():
-    rows = []
-    with open(GOLDEN_PATH, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            if row.get("needs_manual"):
-                continue
-            rows.append(row)
-    return rows
-
-
-GOLDEN_ROWS = [pytest.param(r, id=r["utterance"]) for r in _load_golden_rows()]
+GOLDEN_ROWS = [pytest.param(row, id=row_id(row))
+               for row in map(json.loads, GOLDEN_PATH.read_text(encoding="utf-8").splitlines())]
 
 
 @pytest.fixture(scope="module")
@@ -89,69 +82,16 @@ def minicroft(fake_phal):
     mc.stop()
 
 
-def _capture(minicroft, utterance: str, ignore_speak: bool = True) -> List[Message]:
-    session = Session(f"golden-{abs(hash(utterance))}")
-    session.lang = LANG
-    session.pipeline = list(FALLBACK_PIPELINE)
-
-    message = Message(
-        "recognizer_loop:utterance",
-        {"utterances": [utterance], "lang": LANG},
-        {"session": session.serialize()},
-    )
-
-    test = End2EndTest(
-        minicroft=minicroft,
-        skill_ids=[],
-        eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
-        flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["mycroft.audio.play_sound"] + (
-            ["speak", "ovos.utterance.speak"] if ignore_speak else []),
-        source_message=message,
-        expected_messages=[],
-        test_message_number=False,
-        test_boot_sequence=False,
-        test_routing=False,
-        test_final_session=False,
-        verbose=False,
-    )
-    return test.execute()
-
-
-def _fallback_consumed(messages: List[Message]) -> bool:
-    for m in messages:
-        if m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True:
-            return True
-    return False
-
-
 @pytest.mark.timeout(60)
-@pytest.mark.parametrize("row", GOLDEN_ROWS, ids=lambda r: r["utterance"])
+@pytest.mark.parametrize("row", GOLDEN_ROWS)
 def test_golden_utterance(minicroft, row):
-    skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.calls.clear()
-    messages = _capture(minicroft, row["utterance"])
-    assert _fallback_consumed(messages), (
-        f"{row['utterance']!r}: expected the launcher fallback to consume it "
-        f"(intent_label={row['intent_label']!r}), got "
-        f"{[m.msg_type for m in messages]!r}"
-    )
-    # every golden row names either "something" or one known application
-    app = "spotify" if "spotify" in row["utterance"].split() else "something"
-    assert skill.calls == [(row["intent_label"], app)], (
-        f"{row['utterance']!r}: expected {row['intent_label']}_app({app!r}), "
-        f"the handler asked for {skill.calls}"
-    )
+    assert_effect(minicroft, LANG, row)
 
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("negative", NEGATIVE_UTTERANCES, ids=lambda n: n[0])
 def test_negative_confusable_not_claimed(minicroft, negative):
-    text, source_skill = negative
-    messages = _capture(minicroft, text)
-    assert not _fallback_consumed(messages), (
-        f"{text!r} (from {source_skill}) was incorrectly claimed by {SKILL_ID}"
-    )
+    check_negative(minicroft, LANG, negative[0])
 
 
 def _boot_and_stop(setup=None):
@@ -171,7 +111,7 @@ def _boot_and_stop(setup=None):
     mc.stop()
 
 
-def _spoken(messages: List[Message]) -> List[str]:
+def _spoken(messages: list[Message]) -> list[str]:
     return [m.data.get("utterance", "") for m in messages
             if m.msg_type in ("speak", "ovos.utterance.speak")]
 
@@ -187,7 +127,7 @@ def minicroft_no_phal():
 def test_no_phal_fallback_speaks_error(minicroft_no_phal):
     """With no PHAL plugin answering, a launch request speaks the
     error_no_phal dialog instead of hanging or crashing."""
-    messages = _capture(minicroft_no_phal, "open firefox", ignore_speak=False)
+    messages = capture(minicroft_no_phal, "open firefox", LANG, "no-phal", ignore_speak=False)
     spoken = _spoken(messages)
     assert any("launcher service" in s for s in spoken), spoken
 
@@ -212,8 +152,8 @@ def test_golden_utterance_against_real_phal_plugin(minicroft_real_phal):
     """The fallback also reports ``result == True`` when it only speaks
     error_no_phal, so the plugin's own launch response with
     ``success: true`` must be on the bus and the error must not be spoken."""
-    messages = _capture(minicroft_real_phal, "open something", ignore_speak=False)
-    assert _fallback_consumed(messages), [m.msg_type for m in messages]
+    messages = capture(minicroft_real_phal, "open something", LANG, "real-phal", ignore_speak=False)
+    assert fallback_consumed(messages), [m.msg_type for m in messages]
     launches = [m for m in messages if m.msg_type == "ovos.phal.app_launcher.launch.response"]
     assert [m.data.get("success") for m in launches] == [True], launches
     assert not any("launcher service" in s for s in _spoken(messages)), _spoken(messages)

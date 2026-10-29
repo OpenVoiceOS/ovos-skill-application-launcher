@@ -1,3 +1,4 @@
 apri {application}
 avvia {application}
 usa {application}
+(puoi|potresti) (aprire|avviare) (l'app|l'applicazione|il programma) {application}
