@@ -68,6 +68,16 @@ def fallback_consumed(messages: list[Message]) -> bool:
     return any(m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True for m in messages)
 
 
+def names_app(name: str, app: str) -> bool:
+    """Whether the name the skill sent holds the application as whole words.
+
+    The PHAL plugin matches names fuzzily, so a request that carries an
+    article or a particle around the application ("o firefox") still reaches it.
+    """
+    words, wanted = name.lower().split(), app.lower().split()
+    return any(words[i:i + len(wanted)] == wanted for i in range(len(words) - len(wanted) + 1))
+
+
 def assert_effect(minicroft, lang: str, row: dict) -> None:
     """Tally whether the skill sent the PHAL request the row asks for."""
     skill = minicroft.plugin_skills[SKILL_ID].instance
@@ -76,12 +86,11 @@ def assert_effect(minicroft, lang: str, row: dict) -> None:
     words = row["utterance"].lower().split()
     app = row.get("app") or next((a for a in KNOWN_APPS if a in words), None)
     assert app, f"[{lang}] {row['utterance']!r}: row names no application"
-    expected = [(row["intent_label"], app.lower())]
-    sent = [(verb, name.lower()) for verb, name in skill.calls]
-    if sent == expected and fallback_consumed(messages):
+    if (len(skill.calls) == 1 and skill.calls[0][0] == row["intent_label"]
+            and names_app(skill.calls[0][1], app) and fallback_consumed(messages)):
         done = [f"{SKILL_ID}:{row['intent_label']}"]
     else:
-        done = [f"{SKILL_ID}:{verb} of {name!r}" for verb, name in sent]
+        done = [f"{SKILL_ID}:{verb} of {name!r}" for verb, name in skill.calls]
     TALLY.assert_routed(f"[{lang}] {row['utterance']} ({app})",
                         f"{SKILL_ID}:{row['intent_label']}", done)
 
