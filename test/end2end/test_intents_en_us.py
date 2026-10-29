@@ -124,23 +124,15 @@ VERB_CONFUSION_NEGATIVES = [
 
 
 @pytest.fixture(scope="module")
-def minicroft():
-    """Boot one MiniCroft and neutralise the OS-facing launch/close effects."""
+def minicroft(fake_phal):
+    """Boot one MiniCroft with a stand-in PHAL plugin (see conftest.py)."""
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID])
     skill = mc.plugin_skills[SKILL_ID].instance
-    # keep intent matching real; neutralise the OS-facing effects so the
-    # outcome does not depend on which applications happen to be installed
-    # or running on the runner
-    skill.is_running = lambda app: False
-    # record the resolved {application} slot value instead of discarding it,
-    # so a test can assert WHICH app the fallback resolved to launch/close --
-    # not just that some launch/close happened -- without ever touching a
-    # real process. Cleared per-test by the calling test via .clear().
-    skill.launch_calls = []
-    skill.close_calls = []
-    skill.launch_app = lambda app: skill.launch_calls.append(app) or True
-    skill.close_app = lambda app: skill.close_calls.append(app) or True
+    # keep intent matching real; a stand-in PHAL plugin (conftest.py)
+    # records which application the skill asks it to launch or close, so the
+    # outcome does not depend on the applications of the runner
+    skill.calls = fake_phal(mc.bus)
     yield mc
     # mc.stop() calls bus.ee.remove_all_listeners(), which holds pyee's
     # (non-reentrant) internal lock while it drops `self._events`. If
@@ -208,42 +200,36 @@ def _fallback_consumed(messages: List[Message]) -> bool:
 @pytest.mark.parametrize("utterance,expected_app", LAUNCH_UTTERANCES)
 def test_launch_utterance_resolves_the_named_app(minicroft, utterance, expected_app):
     """The fallback must not just fire -- it must resolve {application} to
-    the app the user actually named, and call ``launch_app`` with it. A
+    the app the user actually named, and ask the PHAL plugin to launch it. A
     "was it consumed" check alone is satisfied by a handler that resolves
-    the wrong app, or ignores the slot and launches whatever it likes;
-    ``launch_app`` is stubbed to never touch a real process, so this
-    inspects the call it WOULD have made instead of a process appearing.
+    the wrong app, or ignores the slot and launches whatever it likes; the
+    stand-in PHAL plugin never touches a real process, so this inspects the
+    request the skill sent instead of a process appearing.
     """
     skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.launch_calls.clear()
-    skill.close_calls.clear()
+    skill.calls.clear()
     messages = _capture(minicroft, utterance)
     assert _fallback_consumed(messages), (
         f"expected {utterance!r} to be handled by the launcher fallback, "
         f"got {[m.msg_type for m in messages]}")
-    assert skill.launch_calls == [expected_app], (
-        f"{utterance!r}: expected launch_app({expected_app!r}), "
-        f"got calls {skill.launch_calls!r}")
-    assert skill.close_calls == [], (
-        f"{utterance!r}: unexpectedly called close_app{skill.close_calls!r}")
+    assert skill.calls == [("launch", expected_app)], (
+        f"{utterance!r}: expected a PHAL launch of {expected_app!r}, "
+        f"got requests {skill.calls!r}")
 
 
 @pytest.mark.parametrize("utterance,expected_app", CLOSE_UTTERANCES)
 def test_close_utterance_resolves_the_named_app(minicroft, utterance, expected_app):
-    """Mirror of the launch case: assert ``close_app`` is called with the app
-    the user actually named, not merely that the fallback fired."""
+    """Mirror of the launch case: assert the PHAL plugin is asked to close the
+    app the user actually named, not merely that the fallback fired."""
     skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.launch_calls.clear()
-    skill.close_calls.clear()
+    skill.calls.clear()
     messages = _capture(minicroft, utterance)
     assert _fallback_consumed(messages), (
         f"expected {utterance!r} to be handled by the launcher fallback, "
         f"got {[m.msg_type for m in messages]}")
-    assert skill.close_calls == [expected_app], (
-        f"{utterance!r}: expected close_app({expected_app!r}), "
-        f"got calls {skill.close_calls!r}")
-    assert skill.launch_calls == [], (
-        f"{utterance!r}: unexpectedly called launch_app{skill.launch_calls!r}")
+    assert skill.calls == [("close", expected_app)], (
+        f"{utterance!r}: expected a PHAL close of {expected_app!r}, "
+        f"got requests {skill.calls!r}")
 
 
 @pytest.mark.parametrize("utterance", BLACKLIST_UTTERANCES)

@@ -1,9 +1,8 @@
 """Shared parts of the golden runners: row execution and the routing tally.
 
-A golden row routes when the skill's own ``launch_app`` or ``close_app``
-(run against the fake desktop of conftest.py) launches or terminates the
-command of the row's application, and nothing else. A negative row routes
-when the skill leaves it unclaimed. Every row reports to the ovoscope
+A golden row routes when the skill asks the PHAL plugin stand-in of
+conftest.py to launch or close the row's application, and nothing else. A
+negative row routes when the skill leaves it unclaimed. Every row reports to the ovoscope
 routing tally, and the run fails when the share of rows that route falls
 below the ``ovoscope_min_routing_rate`` of pyproject.toml.
 """
@@ -37,7 +36,8 @@ def row_id(row: dict) -> str:
     return f"{row['lang']}-{row['intent_label']}-{row['utterance']}"
 
 
-def capture(minicroft, utterance: str, lang: str, session_id: str) -> list[Message]:
+def capture(minicroft, utterance: str, lang: str, session_id: str,
+            ignore_speak: bool = True) -> list[Message]:
     session = Session(session_id)
     session.lang = lang
     session.pipeline = list(FALLBACK_PIPELINE)
@@ -51,7 +51,8 @@ def capture(minicroft, utterance: str, lang: str, session_id: str) -> list[Messa
         skill_ids=[],
         eof_msgs=["ovos.utterance.handled", "complete_intent_failure"],
         flip_points=["recognizer_loop:utterance"],
-        ignore_messages=["speak", "ovos.utterance.speak", "mycroft.audio.play_sound"],
+        ignore_messages=["mycroft.audio.play_sound"] + (
+            ["speak", "ovos.utterance.speak"] if ignore_speak else []),
         source_message=message,
         expected_messages=[],
         test_message_number=False,
@@ -67,21 +68,29 @@ def fallback_consumed(messages: list[Message]) -> bool:
     return any(m.msg_type == FALLBACK_RESPONSE and m.data.get("result") is True for m in messages)
 
 
-def assert_effect(minicroft, fake_desktop, lang: str, row: dict) -> None:
-    """Tally whether the skill did what the row asks."""
+def names_app(name: str, app: str) -> bool:
+    """Whether the name the skill sent holds the application as whole words.
+
+    The PHAL plugin matches names fuzzily, so a request that carries an
+    article or a particle around the application ("o firefox") still reaches it.
+    """
+    words, wanted = name.lower().split(), app.lower().split()
+    return any(words[i:i + len(wanted)] == wanted for i in range(len(words) - len(wanted) + 1))
+
+
+def assert_effect(minicroft, lang: str, row: dict) -> None:
+    """Tally whether the skill sent the PHAL request the row asks for."""
     skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.attempts.clear()
     skill.calls.clear()
     messages = capture(minicroft, row["utterance"], lang, f"golden-{row_id(row)}")
     words = row["utterance"].lower().split()
     app = row.get("app") or next((a for a in KNOWN_APPS if a in words), None)
     assert app, f"[{lang}] {row['utterance']!r}: row names no application"
-    command = fake_desktop.expected_command(app)
-    if skill.calls == [(row["intent_label"], command)] and fallback_consumed(messages):
+    if (len(skill.calls) == 1 and skill.calls[0][0] == row["intent_label"]
+            and names_app(skill.calls[0][1], app) and fallback_consumed(messages)):
         done = [f"{SKILL_ID}:{row['intent_label']}"]
     else:
-        done = ([f"{SKILL_ID}:{intent} of {cmd!r}" for intent, cmd in skill.calls]
-                or [f"{SKILL_ID}:{intent} declined {value!r}" for intent, value in skill.attempts])
+        done = [f"{SKILL_ID}:{verb} of {name!r}" for verb, name in skill.calls]
     TALLY.assert_routed(f"[{lang}] {row['utterance']} ({app})",
                         f"{SKILL_ID}:{row['intent_label']}", done)
 
@@ -89,13 +98,13 @@ def assert_effect(minicroft, fake_desktop, lang: str, row: dict) -> None:
 def check_negative(minicroft, lang: str, utterance: str) -> None:
     """Tally a claim of a request that belongs to another skill.
 
-    A claim is the matcher handing the request to launch_app/close_app,
-    whether or not an installed application then matches.
+    A claim is a PHAL request from the skill, or a fallback response that
+    reports the request as handled.
     """
     skill = minicroft.plugin_skills[SKILL_ID].instance
-    skill.attempts.clear()
+    skill.calls.clear()
     messages = capture(minicroft, utterance, lang, f"negative-{lang}-{utterance}")
-    claimed = [f"{SKILL_ID}:{intent}" for intent, _ in skill.attempts]
+    claimed = [f"{SKILL_ID}:{verb}" for verb, _ in skill.calls]
     if not claimed and fallback_consumed(messages):
         claimed = [FALLBACK_RESPONSE]
     TALLY.assert_not_routed(f"[{lang}] {utterance}", claimed, claimed)

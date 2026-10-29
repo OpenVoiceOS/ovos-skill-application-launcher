@@ -21,13 +21,16 @@ import json
 from pathlib import Path
 
 import pytest
+from ovos_bus_client.message import Message
 from ovos_utils.log import LOG
 from ovoscope import get_minicroft
 
 from .golden_support import (
     SKILL_ID,
     assert_effect,
+    capture,
     check_negative,
+    fallback_consumed,
     row_id,
 )
 
@@ -60,13 +63,13 @@ GOLDEN_ROWS = [pytest.param(row, id=row_id(row))
 
 
 @pytest.fixture(scope="module")
-def minicroft(fake_desktop):
-    """Boot one MiniCroft on a fake desktop (see conftest.py)."""
+def minicroft(fake_phal):
+    """Boot one MiniCroft with a stand-in PHAL plugin (see conftest.py)."""
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID])
-    restore = fake_desktop.install(mc.plugin_skills[SKILL_ID].instance)
+    skill = mc.plugin_skills[SKILL_ID].instance
+    skill.calls = fake_phal(mc.bus)
     yield mc
-    restore()
     # see test_intents_en_us.py's teardown docstring for why the listener
     # dict is drained before mc.stop() takes pyee's non-reentrant lock.
     ee = getattr(mc.bus, "ee", None)
@@ -81,11 +84,76 @@ def minicroft(fake_desktop):
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("row", GOLDEN_ROWS)
-def test_golden_utterance(minicroft, fake_desktop, row):
-    assert_effect(minicroft, fake_desktop, LANG, row)
+def test_golden_utterance(minicroft, row):
+    assert_effect(minicroft, LANG, row)
 
 
 @pytest.mark.timeout(60)
 @pytest.mark.parametrize("negative", NEGATIVE_UTTERANCES, ids=lambda n: n[0])
 def test_negative_confusable_not_claimed(minicroft, negative):
     check_negative(minicroft, LANG, negative[0])
+
+
+def _boot_and_stop(setup=None):
+    LOG.set_level("CRITICAL")
+    mc = get_minicroft([SKILL_ID])
+    teardown = setup(mc) if setup else None
+    yield mc
+    if teardown:
+        teardown()
+    ee = getattr(mc.bus, "ee", None)
+    if ee is not None:
+        events = getattr(ee, "_events", None)
+        if events is not None:
+            for event in list(events.keys()):
+                events.pop(event, None)
+        gc.collect()
+    mc.stop()
+
+
+def _spoken(messages: list[Message]) -> list[str]:
+    return [m.data.get("utterance", "") for m in messages
+            if m.msg_type in ("speak", "ovos.utterance.speak")]
+
+
+@pytest.fixture(scope="module")
+def minicroft_no_phal():
+    """A MiniCroft with no PHAL plugin on the bus: a stock install of the
+    skill without ovos-PHAL-plugin-app-launcher."""
+    yield from _boot_and_stop()
+
+
+@pytest.mark.timeout(60)
+def test_no_phal_fallback_speaks_error(minicroft_no_phal):
+    """With no PHAL plugin answering, a launch request speaks the
+    error_no_phal dialog instead of hanging or crashing."""
+    messages = capture(minicroft_no_phal, "open firefox", LANG, "no-phal", ignore_speak=False)
+    spoken = _spoken(messages)
+    assert any("launcher service" in s for s in spoken), spoken
+
+
+@pytest.fixture(scope="module")
+def minicroft_real_phal():
+    """A MiniCroft with the published ovos-PHAL-plugin-app-launcher on the
+    bus, so the request and response contract is the plugin's own."""
+    from ovos_phal_plugin_app_launcher import AppLauncherPHALPlugin
+
+    def setup(mc):
+        # the plugin checks the host's real processes, so the name must be
+        # one that no process on the runner carries
+        plugin = AppLauncherPHALPlugin(bus=mc.bus, config={"user_commands": {"something": "true"}})
+        return plugin.shutdown
+
+    yield from _boot_and_stop(setup)
+
+
+@pytest.mark.timeout(60)
+def test_golden_utterance_against_real_phal_plugin(minicroft_real_phal):
+    """The fallback also reports ``result == True`` when it only speaks
+    error_no_phal, so the plugin's own launch response with
+    ``success: true`` must be on the bus and the error must not be spoken."""
+    messages = capture(minicroft_real_phal, "open something", LANG, "real-phal", ignore_speak=False)
+    assert fallback_consumed(messages), [m.msg_type for m in messages]
+    launches = [m for m in messages if m.msg_type == "ovos.phal.app_launcher.launch.response"]
+    assert [m.data.get("success") for m in launches] == [True], launches
+    assert not any("launcher service" in s for s in _spoken(messages)), _spoken(messages)
