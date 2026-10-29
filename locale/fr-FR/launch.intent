@@ -1,3 +1,4 @@
-demarre {application}
+démarre {application}
 lance {application}
 ouvre {application}
+(tu peux|tu pourrais) (ouvrir|lancer|démarrer) (l'application|le programme) {application}
