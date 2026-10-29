@@ -75,7 +75,7 @@ def _golden_id(row):
 
 
 @pytest.fixture(scope="module")
-def minicroft(request):
+def minicroft(request, fake_phal):
     """One MiniCroft boot per distinct lang value, reused across every row
     of that lang (pytest caches module-scoped indirect fixtures by param
     value and groups tests to minimise re-instantiation)."""
@@ -83,10 +83,7 @@ def minicroft(request):
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID], max_wait=150, lang=lang)
     skill = mc.plugin_skills[SKILL_ID].instance
-    skill.is_running = lambda app: False
-    skill.calls = []
-    skill.launch_app = lambda app: skill.calls.append(("launch", app)) or True
-    skill.close_app = lambda app: skill.calls.append(("close", app)) or True
+    skill.calls = fake_phal(mc.bus)
     yield mc
     ee = getattr(mc.bus, "ee", None)
     if ee is not None:
