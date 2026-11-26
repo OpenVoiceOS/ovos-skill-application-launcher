@@ -16,7 +16,7 @@ The entries are transcriptions of one utterance, so reading all of them must
 not widen the `application.blacklist` slot-value exclusion
 (OVOS-INTENT-2 §4.3) either: a hit on any entry declines the round.
 
-No application is launched here: `launch_app` records its argument.
+No application is launched here: `_launch_app` records its argument.
 """
 import importlib.util
 import os
@@ -47,10 +47,11 @@ def skill():
     module = _load_skill_module()
     sk = module.ApplicationLauncherSkill(skill_id="test.app.launcher.utterances",
                                          bus=FakeBus())
-    sk.applist = {"Spotify": "spotify", "Firefox": "firefox"}
     sk.launched = []
-    sk.launch_app = lambda app: (sk.launched.append(app), True)[1]
-    sk.is_running = lambda app: False
+    sk._launch_app = lambda app, message: (sk.launched.append(app), True)[1]
+    # the PHAL plugin answers that nothing is running
+    sk._ask_phal = lambda msg_type, app, message: Message(
+        f"{msg_type}.response", {"name": app, "running": False})
     return sk
 
 

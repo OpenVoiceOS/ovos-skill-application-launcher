@@ -11,7 +11,8 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MACROLANGUAGE_PAIRS = [("arz", "ar"), ("wuu", "zh")]
 REGIONAL_PAIRS = [("ar-SA", "ar"), ("en-AU", "en-GB"), ("pt-BR", "pt-PT")]
-UNRELATED_PAIRS = [("en", "zh"), ("es", "fr"), ("fr-CH", "de-CH"), ("af", "nl")]
+UNRELATED_PAIRS = [("en", "zh"), ("es", "fr"), ("fr-CH", "de-CH"), ("af", "nl"),
+                    ("ca", "es"), ("no", "da")]
 
 
 @pytest.fixture(scope="module")

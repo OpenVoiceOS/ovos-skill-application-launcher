@@ -14,8 +14,8 @@ which locale MiniCroft boots as primary).
 
 Rows are natural requests a speaker of the locale makes, each naming a real
 application. A row's ``app`` field holds that application. The skill's own
-launch_app/close_app run against the fake desktop in conftest.py, and the test
-asserts the effect: the skill launched or terminated the command of ``app``.
+PHAL requests are recorded by the stand-in plugin in conftest.py, and the test
+asserts the effect: the skill asked PHAL to launch or close ``app``.
 A row rewritten from an older template-made row keeps the old text in
 ``rewritten_from``.
 
@@ -59,16 +59,16 @@ ROWS = {lang: load_rows(lang) for lang in LANGS}
 
 
 @pytest.fixture(scope="module")
-def minicroft(request, fake_desktop):
+def minicroft(request, fake_phal):
     """One MiniCroft boot per distinct lang value, reused across every row
     of that lang (pytest caches module-scoped indirect fixtures by param
     value and groups tests to minimise re-instantiation)."""
     lang = request.param
     LOG.set_level("CRITICAL")
     mc = get_minicroft([SKILL_ID], max_wait=150, lang=lang)
-    restore = fake_desktop.install(mc.plugin_skills[SKILL_ID].instance)
+    skill = mc.plugin_skills[SKILL_ID].instance
+    skill.calls = fake_phal(mc.bus)
     yield mc
-    restore()
     ee = getattr(mc.bus, "ee", None)
     if ee is not None:
         events = getattr(ee, "_events", None)
@@ -83,8 +83,8 @@ def minicroft(request, fake_desktop):
 @pytest.mark.parametrize("minicroft,row", [pytest.param(lang, row, id=row_id(row))
                                           for lang in LANGS for row in ROWS[lang]],
                          indirect=["minicroft"])
-def test_golden_utterance_multilang(minicroft, fake_desktop, row):
-    assert_effect(minicroft, fake_desktop, row["lang"], row)
+def test_golden_utterance_multilang(minicroft, row):
+    assert_effect(minicroft, row["lang"], row)
 
 
 @pytest.mark.timeout(600)
