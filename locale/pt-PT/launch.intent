@@ -1,0 +1,4 @@
+(abre|abrir) {application}
+(corre|correr) {application}
+(lança|lançar) {application}
+(podes|podias) (abrir|lançar) (a aplicação|o programa) {application}

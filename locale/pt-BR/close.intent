@@ -1,0 +1,3 @@
+(feche|fechar|encerre|encerrar|mate|matar|saia de|sair de|termine|terminar) {application}
+(feche|fechar|encerre|encerrar|saia de|sair de) [o] (app|aplicativo|programa|janela) {application}
+[você] (pode|poderia) fechar [o] (app|aplicativo|programa) {application}

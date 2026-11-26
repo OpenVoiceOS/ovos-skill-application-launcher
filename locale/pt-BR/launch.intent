@@ -1,0 +1,3 @@
+(abra|abrir|inicie|iniciar|execute|executar|rode|rodar) {application}
+(abra|abrir|inicie|iniciar|execute|executar) [o] (app|aplicativo|programa) {application}
+[você] (pode|poderia) (abrir|iniciar|executar) [o] (app|aplicativo|programa) {application}

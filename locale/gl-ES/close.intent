@@ -1,0 +1,7 @@
+pechar {application}
+rematar {application}
+saír de {application}
+terminar {application}
+(pecha|remata) (a aplicación|o programa) {application}
+sae (da aplicación|do programa) {application}
+(podes|poderías) pechar (a aplicación|o programa) {application}

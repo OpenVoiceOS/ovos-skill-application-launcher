@@ -1,0 +1,19 @@
+# Closing / quitting a running desktop application.
+# Shares the open-vocabulary {application} slot with launch.intent and the same
+# application.blacklist slot-value exclusion.
+Закрыть {application}
+убей программу {application}
+закрой программу {application}
+Закрыть приложение {application}
+выйди из приложения {application}
+убей приложение {application}
+Выход из приложения {application}
+можешь закрыть приложение {application}
+не могли бы вы закрыть приложение {application}
+вы можете выйти из приложения {application}
+можешь выйти из программы {application}
+Я хочу закрыть {application}
+мне нужно закрыть приложение {application}
+я хочу выйти из приложения {application}
+мне нужно выйти из программы {application}
+заверши программу {application}
